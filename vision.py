@@ -385,7 +385,7 @@ async def extract_and_analyze_image(
         return "skipped", None
 
     # OCR과 다운스케일은 동기 CPU 작업이라 그대로 두면 이벤트 루프를 막는다.
-    # (루미를 여러 마리 띄웠을 때 요청이 줄줄이 밀림) -> 스레드로 넘긴다.
+    # (요청이 겹치면 줄줄이 밀림) -> 스레드로 넘긴다.
     ocr_text, vision_b64 = await asyncio.gather(
         asyncio.to_thread(_run_ocr, raw_b64, window_title),
         asyncio.to_thread(_downscale_for_vision, raw_b64),
