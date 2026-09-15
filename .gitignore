@@ -1,0 +1,24 @@
+# 비밀·개인 설정
+.env
+fish_key.txt
+mijin_settings.json
+
+# 미진이 기억과 관찰 기록
+mem/
+observations.jsonl
+profile.txt
+distilled_profile.txt
+
+# 파이썬
+.venv/
+__pycache__/
+
+# 유니티
+client/Library/
+client/Temp/
+client/Logs/
+client/Obj/
+client/Build/
+client/UserSettings/
+*.csproj
+*.sln
