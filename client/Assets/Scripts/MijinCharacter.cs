@@ -27,6 +27,7 @@ public class MijinCharacter : MonoBehaviour
     [Header("눈 스프라이트")]
     public Sprite eyesOpen;
     public Sprite eyesClosed;
+    public Sprite eyesBlind;
 
     [Header("입 스프라이트")]
     public Sprite mouthClosed;
@@ -102,14 +103,18 @@ public class MijinCharacter : MonoBehaviour
             yield return new WaitForSeconds(
                 Random.Range(blinkIntervalRange.x, blinkIntervalRange.y));
 
+            // 대기하는 동안 눈이 가려졌을 수 있다 - 그러면 이번 깜빡임은 건너뛴다
+            if (_eyesCovered) continue;
+
             eyesRenderer.sprite = eyesClosed;
             yield return new WaitForSeconds(blinkDuration);
             if (!_eyesCovered) eyesRenderer.sprite = eyesOpen;
 
             // 가끔 두 번 연속으로 깜빡이면 더 살아 있어 보인다
-            if (Random.value < 0.25f)
+            if (Random.value < 0.25f && !_eyesCovered)
             {
                 yield return new WaitForSeconds(0.12f);
+                if (_eyesCovered) continue;
                 eyesRenderer.sprite = eyesClosed;
                 yield return new WaitForSeconds(blinkDuration);
                 if (!_eyesCovered) eyesRenderer.sprite = eyesOpen;
@@ -224,10 +229,13 @@ public class MijinCharacter : MonoBehaviour
     /// <summary>말이 끝났을 때 입을 닫는다.</summary>
     public void CloseMouth() => mouthRenderer.sprite = mouthClosed;
 
-    /// <summary>가리기 중에는 눈을 감은 채로 둔다 (깜빡임도 멈춘다).</summary>
-    public void SetEyesCovered(bool covered)
+    /// <summary>가리기 중에는 blind 스프라이트로 바꾼다 (깜빡임도 멈춘다).</summary>
+        public void SetEyesCovered(bool covered)
     {
         _eyesCovered = covered;
-        eyesRenderer.sprite = covered ? eyesClosed : eyesOpen;
+        if (!covered)
+            eyesRenderer.sprite = eyesOpen;
+        else
+            eyesRenderer.sprite = eyesBlind != null ? eyesBlind : eyesClosed;
     }
 }

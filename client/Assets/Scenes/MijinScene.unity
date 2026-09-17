@@ -685,6 +685,7 @@ MonoBehaviour:
   bodyWalk02: {fileID: 21300000, guid: 988d9c0c0e52fc94196ffa7c8310300a, type: 3}
   eyesOpen: {fileID: 21300000, guid: ce528cd163576494eba48ca78bcdf7e6, type: 3}
   eyesClosed: {fileID: 21300000, guid: bb4d63a58abca5b4aa2b4d1daa24fff0, type: 3}
+  eyesBlind: {fileID: 21300000, guid: 4f4a14e0839c229448feb4bde76f2db6, type: 3}
   mouthClosed: {fileID: 21300000, guid: bfaf626fc18808e4cbdda8964e147db8, type: 3}
   mouthHalf: {fileID: 21300000, guid: 93f26da9192b18b4bace36c9e29b3523, type: 3}
   mouthOpen: {fileID: 21300000, guid: 066de96e332b395498e1dc41a3563dad, type: 3}
@@ -838,8 +839,9 @@ MonoBehaviour:
   enableMonologue: 1
   intervalRange: {x: 70, y: 120}
   startDelay: 10
+  fullscreenIntervalMultiplier: 1.3
   idleSkipSeconds: 180
-  skipWhenFullscreen: 1
+  skipWhenFullscreen: 0
   backoffMultiplier: 1.6
   maxInterval: 1200
 --- !u!114 &236882372

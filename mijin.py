@@ -21,6 +21,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+import distill
 import episode
 import memory
 from config import (
@@ -125,6 +126,7 @@ async def _call_cloud(messages: List[Dict[str, Any]]) -> Optional[str]:
 @router.post("/mijin/chat")
 async def mijin_chat(req: MijinRequest):
     asyncio.create_task(episode.ensure_recent())
+    asyncio.create_task(distill.ensure())
 
     # ── 1. 화면 분석 ──────────────────────────────
     # vision.py는 OpenAI 형식 메시지를 받으므로 이미지 한 장짜리 목록으로 감싼다.
@@ -196,3 +198,10 @@ async def mijin_episode(date: str = "", force: bool = False):
     day = date or (_date.today() - timedelta(days=1)).isoformat()
     result = await episode.build(day, force=force)
     return {"status": "ok" if result else "skipped", "date": day, **(result or {})}
+
+
+@router.post("/mijin/distill")
+async def mijin_distill(force: bool = False):
+    """프로필을 손수 증류한다. 확인용."""
+    result = await distill.build(force=force)
+    return {"status": "ok" if result else "skipped", "profile": result or ""}
