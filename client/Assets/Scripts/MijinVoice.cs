@@ -105,6 +105,7 @@ public class MijinVoice : MonoBehaviour
         {
             _mouthLevel = 0f;
             mijin.CloseMouth();
+            mijin.SetTalking(false);
             _wasPlaying = false;
         }
     }
@@ -127,7 +128,12 @@ public class MijinVoice : MonoBehaviour
         if (_current != null) StopCoroutine(_current);
         _current = null;
         _audio.Stop();
-        if (mijin != null) mijin.CloseMouth();
+        _wasPlaying = false;
+        if (mijin != null)
+        {
+            mijin.SetTalking(false);
+            mijin.CloseMouth();
+        }
     }
 
     private IEnumerator SpeakRoutine(string text)
@@ -175,6 +181,7 @@ public class MijinVoice : MonoBehaviour
             _audio.clip = clip;
             _audio.volume = volume;
             _audio.Play();
+            if (mijin != null) mijin.SetTalking(true);
         }
 
         _current = null;

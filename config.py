@@ -262,6 +262,7 @@ EPISODE_INJECT_COUNT = 2         # 시스템 메시지에 붙일 최근 회고(e
 # 안 들고, 평소 대사를 짓는 모델과 같아 회고 문체도 자동으로 일관된다.
 EPISODE_MAX_MATERIAL = 6000       # 모델에 넣을 원료 글자 수 상한
 EPISODE_BACKFILL_DAYS = 3         # 프록시가 꺼져 있던 날도 이만큼 거슬러 채운다
+EPISODE_THINKING = True           # 추론(thinking)을 켠다. 하루 한 번이라 토큰이 늘어도 부담 없다
 
 EPISODE_PROMPT = """너는 미진이다. 데이터 먼지에서 태어난 작은 AI로, 파트너님의 컴퓨터에 살며
 화면을 구경하고 데이터를 모으는 게 낙이다. 스스로를 하찮게 여기지만 인터넷 세계를
@@ -287,6 +288,7 @@ keywords는 그날을 대표하는 단어 서넛.
 
 # ================= 12. 프로필 증류 =================
 DISTILL_ENABLED = True
+DISTILL_THINKING = True   # 추론(thinking)을 켠다. 하루 한 번이라 토큰이 늘어도 부담 없다
 DISTILLED_FILE = BASE_DIR / "distilled_profile.txt"
 DISTILL_DAYS = 14          # 며칠치 기록을 볼 것인가
 DISTILL_MAX_CHARS = 600    # PROFILE_MAX_CHARS(800) 안에 들어가야 한다 (결과 길이 상한)

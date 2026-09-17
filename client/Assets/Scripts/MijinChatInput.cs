@@ -84,7 +84,8 @@ public class MijinChatInput : MonoBehaviour
         inputField.ActivateInputField();
 
         if (followCharacter) FollowCharacter();
-        if (talk != null && talk.mijin != null) talk.mijin.SetHeld(true);
+        // 걷지 못하게만 멈추는 것이지 들어올린 게 아니니 들림 자세는 보여주지 않는다
+        if (talk != null && talk.mijin != null) talk.mijin.SetHeld(true, hangPose: false);
     }
 
     public void Close()

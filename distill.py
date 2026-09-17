@@ -23,7 +23,7 @@ from typing import List, Optional
 from config import (
     DISTILL_ENABLED, DISTILL_DAYS, DISTILL_PROMPT, DISTILL_MAX_CHARS,
     DISTILL_MAX_MATERIAL, DISTILLED_FILE, DISTILL_DROP_PATTERNS,
-    OBSERVATION_LOG, OBSERVE_CONTENT_BLOCKLIST,
+    DISTILL_THINKING, OBSERVATION_LOG, OBSERVE_CONTENT_BLOCKLIST,
 )
 import memory
 
@@ -136,10 +136,18 @@ async def build(force: bool = False) -> Optional[str]:
 
     # 회고와 같은 경로를 쓴다. 하루 한 번이라 비용이 거의 들지 않는다.
     from mijin import _call_cloud
-    raw = await _call_cloud([{"role": "user", "content": prompt}])
+    messages = []
+    if DISTILL_THINKING:
+        messages.append({"role": "system", "content": "<|think|>"})
+    messages.append({"role": "user", "content": prompt})
+
+    raw = await _call_cloud(messages)
     if not raw:
         return None
 
+    # episode.py는 JSON만 정규식으로 뽑아내 thinking 블록이 섞여도 안전하지만,
+    # 여기는 원문을 그대로 줄 단위로 쓰므로 새어나온 thinking 블록을 먼저 떼어낸다.
+    raw = re.sub(r"<think(?:ing)?>.*?</think(?:ing)?>", "", raw, flags=re.IGNORECASE | re.DOTALL)
     # 모델이 머리말을 붙이는 경우가 있어 목록 줄만 남긴다
     raw = re.sub(r"^```.*?$", "", raw, flags=re.MULTILINE)
     result = _sanitize(raw)

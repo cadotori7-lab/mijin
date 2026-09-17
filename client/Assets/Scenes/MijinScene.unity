@@ -683,12 +683,37 @@ MonoBehaviour:
   bodyIdle: {fileID: 21300000, guid: 31e7827d5a43cfd43900362f62cf63fa, type: 3}
   bodyWalk01: {fileID: 21300000, guid: 8894bce4ed0f66e45ad727df15e04d63, type: 3}
   bodyWalk02: {fileID: 21300000, guid: 988d9c0c0e52fc94196ffa7c8310300a, type: 3}
+  bodyStand01: {fileID: 21300000, guid: ec7ce38846604b308188e1611179d375, type: 3}
+  bodyStand02: {fileID: 21300000, guid: 9fd4119d09b249c5a9ad66498e6ac2fb, type: 3}
+  standChance: 0.25
+  standDurationRange: {x: 2, y: 4}
+  standWobbleSeconds: 0.25
+  bodyHold01: {fileID: 21300000, guid: 364fba343693a984f9188f3c7fa1ab72, type: 3}
+  bodyHold02: {fileID: 21300000, guid: 08b6551deeeb2424a969da2eb34194bf, type: 3}
+  hangPoint: {x: -0.52, y: 5.83}
+  hangSwapSeconds: 0.5
+  bodyFly01: {fileID: 21300000, guid: e1e8773bf920c394191d246bc7c1c981, type: 3}
+  bodyFly02: {fileID: 21300000, guid: fd8d08a1dc1457949bb3772032dccc4f, type: 3}
+  bodyLand: {fileID: 21300000, guid: f4bfa286e5d208f449200d61b51f670d, type: 3}
+  flySwapSeconds: 0.18
+  landRecoverSeconds: 0.22
+  smugHoldSeconds: 0.9
+  squashAmount: 0.22
+  bounceSquashSeconds: 0.14
+  landOffsetY: -0.5
+  flyOffsetY: 0.14
   eyesOpen: {fileID: 21300000, guid: ce528cd163576494eba48ca78bcdf7e6, type: 3}
   eyesClosed: {fileID: 21300000, guid: bb4d63a58abca5b4aa2b4d1daa24fff0, type: 3}
   eyesBlind: {fileID: 21300000, guid: 4f4a14e0839c229448feb4bde76f2db6, type: 3}
+  eyesExcited: {fileID: 21300000, guid: fff8925fc38d85a4a9aea74d887bf9d3, type: 3}
+  eyesSmug: {fileID: 21300000, guid: eeda5e67e7743e741ac7e3385d8bd961, type: 3}
+  eyesUpset: {fileID: 21300000, guid: 90190e505daad6c49bfdc68b9a06054e, type: 3}
   mouthClosed: {fileID: 21300000, guid: bfaf626fc18808e4cbdda8964e147db8, type: 3}
   mouthHalf: {fileID: 21300000, guid: 93f26da9192b18b4bace36c9e29b3523, type: 3}
   mouthOpen: {fileID: 21300000, guid: 066de96e332b395498e1dc41a3563dad, type: 3}
+  mouthFocus: {fileID: 21300000, guid: 822c78c7ed28415abb94c0abe9128e3a, type: 3}
+  mouthSmug: {fileID: 21300000, guid: e70f67fd85c72fd4baa0367f30375bb3, type: 3}
+  mouthUpset: {fileID: 21300000, guid: ca5ae24515b8f7c4cb680fa530a15a13, type: 3}
   artFacesRight: 0
   walkSpeed: 0.6
   walkEnabled: 1
@@ -757,12 +782,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ddf2da609ed10cf41a8ee9ab021da677, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MijinDrag
-  gravity: 14
+  gravity: 20
   bounciness: 0.35
   wallBounciness: 0.5
   maxThrowSpeed: 14
   groundFriction: 6
-  maxGrabOffset: 0.6
+  bounceThreshold: 1.5
+  hangFollow: 12
+  hangTiltPerSpeed: 4
+  maxHangTilt: 22
+  flyTiltPerSpeed: 2.5
+  maxFlyTilt: 30
   clickMaxDistance: 0.2
   clickMaxDuration: 0.4
   onClick:

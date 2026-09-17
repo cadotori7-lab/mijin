@@ -77,9 +77,12 @@ public class MijinTalk : MonoBehaviour
     {
         IsBusy = true;
         bubble.Show("...");   // 기다리는 동안 생각하는 표시
+        if (mijin != null) mijin.SetFocused(true);
 
         string result = null;
         yield return SendToProxy(kind, text, imageBase64, r => result = r);
+
+        if (mijin != null) mijin.SetFocused(false);
 
          if (!string.IsNullOrEmpty(result))
         {

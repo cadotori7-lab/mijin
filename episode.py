@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from config import (
     EPISODE_PROMPT, EPISODE_MAX_MATERIAL, EPISODE_BACKFILL_DAYS,
-    OBSERVATION_LOG,
+    EPISODE_THINKING, OBSERVATION_LOG,
 )
 import memory
 
@@ -82,7 +82,12 @@ async def _summarize(date: str, material: str) -> Optional[Dict[str, Any]]:
 
     prompt = EPISODE_PROMPT.format(date=date) + "\n\n[오늘의 기록]\n" + material
 
-    raw = await _call_cloud([{"role": "user", "content": prompt}])
+    messages = []
+    if EPISODE_THINKING:
+        messages.append({"role": "system", "content": "<|think|>"})
+    messages.append({"role": "user", "content": prompt})
+
+    raw = await _call_cloud(messages)
     if not raw:
         print("[EPISODE] 요약 실패: 클라우드 응답 없음")
         return None
