@@ -5,8 +5,13 @@
 바탕화면 위를 걸어다니는 캐릭터가 사용자의 화면을 보고 반응한다. 로컬에서 화면을 읽고, 필요한 만큼만 클라우드 모델에 넘겨 대사를 만들고, 음성으로 말한다.
 
 <!-- TODO: 미진이가 바탕화면에서 말하는 GIF 또는 스크린샷 -->
+### 집어서 던지면 날아가고 착지한다
 <img width="560" alt="hold" src="https://github.com/user-attachments/assets/9ae34532-9eef-462b-b165-e270f743e81d" />
+
+### 클릭하면 반응한다
 <img width="580" alt="poke" src="https://github.com/user-attachments/assets/962552b2-5453-48e7-86cd-8dfa2196e4bd" />
+
+### 화면을 보고 말을 건다
 <img width="820" alt="screen" src="https://github.com/user-attachments/assets/bef005c5-1b1f-4f9d-bd87-a059af36866f" />
 
 ## 이런 걸 만들었다
