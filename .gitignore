@@ -21,4 +21,5 @@ client/Obj/
 client/Build/
 client/UserSettings/
 *.csproj
-*.sln*.slnx
+*.sln
+*.slnx
