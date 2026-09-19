@@ -54,12 +54,12 @@ public class MijinTalk : MonoBehaviour
         _lastPokeTime = Time.time;
         _pokeCount++;
 
-        Talk("chat", $"(파트너님이 미진이를 쿡 찌른다. 이번이 연속 {_pokeCount}번째다.)");
+        Talk("event", $"(파트너님이 미진이를 쿡 찌른다. 이번이 연속 {_pokeCount}번째다.)");
     }
 
     /// <summary>
     /// 프록시에 요청하고 받은 대사를 말풍선에 띄운다.
-    /// kind: "chat"(말 걸기) | "monologue"(혼잣말) | "screen"(화면 반응)
+    /// kind: "chat"(말 걸기) | "monologue"(혼잣말) | "screen"(화면 반응) | "event"(찌르기·블라인드 등 클라이언트가 만든 지문)
     /// </summary>
     public void Talk(string kind, string text, string imageBase64 = null)
     {

@@ -63,7 +63,7 @@ public class MijinBlind : MonoBehaviour
         OnChanged?.Invoke(blind);
 
         if (react && reactWhenToggled && talk != null)
-            talk.Talk("chat", blind ? onBlindText : onRevealText);
+            talk.Talk("event", blind ? onBlindText : onRevealText);
     }
 
     /// <summary>저장된 설정을 불러올 때. 시작하자마자 말을 걸지 않는다.</summary>

@@ -11,7 +11,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import (
-    MAX_SCREEN_MEMORY, SCREEN_MEMORY_TTL_SEC, LATEST_FULL_SEC,
+    MAX_SCREEN_MEMORY, SCREEN_MEMORY_TTL_SEC, CHAT_SCREEN_REF_SEC,
+    SCREEN_FULL_HEADER, SCREEN_REF_HEADER,
     PROFILE_FILES, PROFILE_MAX_CHARS,
     DEEP_HINT, PERSONA_REMINDER,
 )
@@ -103,30 +104,47 @@ def _inject_profile(cleaned: List[Dict[str, Any]]) -> None:
 
 
 def _build_screen_memory(now: float, has_new_screen: bool) -> Tuple[str, bool]:
-    """화면 기억을 조립한다. 최신 1개만(그것도 충분히 최근일 때만) 전문, 나머지는 압축본.
+    """화면 기억을 조립한다. 등급은 셋 - 분기 기준은 "이번 턴에 새 캡처가 있었는지" 하나뿐이다.
 
-    TTL이 지난 기억은 아예 주입하지 않는다 - "time" 문자열엔 날짜가 없어 모델이
-    스스로 얼마나 오래됐는지 판단할 수 없으므로, 자리를 비웠다가 돌아와도 옛 화면을
-    "지금 보고 있는 것"처럼 반응하게 된다. 최신 항목도 has_new_screen(이번 턴에 실제로
-    캡처됨)이 아니고 LATEST_FULL_SEC보다 오래됐으면 전문 대신 압축본으로 낮춘다 -
-    안 그러면 "이거 어때?" 같은 말 걸기 요청마다 최대 4000자짜리 화면 전문이 매번
-    다시 나가고 DEEP_HINT까지 붙어 캐릭터가 계속 그 화면 얘기로 돌아가게 된다.
+    - FULL (has_new_screen): 최신 1개는 전문, 나머지는 압축본. 이번 턴에 실제로 캡처된
+      것이므로 최신 항목의 "신선도"는 더 따지지 않는다 (has_new_screen이 곧 방금 캡처됐다는
+      뜻이라 - REF/NONE에서 "캡처 없이 오래됨" 쪽은 위에서 이미 갈라냈다).
+      TTL이 지난 기억은 아예 주입하지 않는다 - "time" 문자열엔 날짜가 없어 모델이
+      스스로 얼마나 오래됐는지 판단할 수 없으므로, 자리를 비웠다가 돌아와도 옛 화면을
+      "지금 보고 있는 것"처럼 반응하게 된다.
+    - REF (새 캡처 없음, CHAT_SCREEN_REF_SEC 이내): 최신 brief 한 줄만, 목록 형태나
+      DEEP_HINT 없이 "참고" 수준으로만 건넨다. 사용자가 키보드로 말을 걸거나 찌르기 같은
+      이벤트로 들어온 턴은 이미지가 없어 화면과 무관한데, 그래도 FULL과 같은 "최근 화면
+      변경 기록" 문구를 매번 주입하면 그 문구 자체가 "너는 지금 화면을 보고 있다"라고
+      선언하는 셈이 되어 화면과 무관한 질문에도 답이 화면 쪽으로 끌려간다 (실측: 양자택일
+      질문에 화면 얘기로 답이 새는 증상). 다만 한 줄은 남겨야 "이거 어때?" 같은 지시대명사가
+      풀린다.
+    - NONE (새 캡처 없음, 그보다 오래됨): 아무것도 주입하지 않는다.
 
-    반환: (주입할 텍스트, 최신 항목을 전문으로 보냈고 그게 작업 창인지 여부)
+    kind(chat/monologue/screen)로 분기하지 않는 이유: 혼잣말 턴은 캡처가 없으면 mijin.py에서
+    이미 early return하므로 항상 screen_record(has_new_screen)가 있다. 따라서 "캡처 유무"
+    하나로 세 경우가 모두 갈린다.
+
+    반환: (주입할 텍스트, 최신 항목을 전문으로 보냈고 그게 작업 창인지 여부 - REF/NONE은 항상 False)
     """
     fresh = [r for r in global_screen_memory if now - r["ts"] < SCREEN_MEMORY_TTL_SEC]
     if not fresh:
         return "", False
 
+    now_str = datetime.now().strftime("%H시 %M분")
+
+    if not has_new_screen:
+        latest = fresh[-1]
+        if now - latest["ts"] >= CHAT_SCREEN_REF_SEC:
+            return "", False
+        return SCREEN_REF_HEADER.format(now=now_str) + latest["brief"], False
+
     *older, latest = fresh
     lines = [f"- [{o['time']}] {o['brief']}" for o in older]
+    lines.append(f"- [{latest['time']}] {latest['full']}")
 
-    latest_is_recent = has_new_screen or (now - latest["ts"] < LATEST_FULL_SEC)
-    lines.append(f"- [{latest['time']}] {latest['full'] if latest_is_recent else latest['brief']}")
-
-    now_str = datetime.now().strftime("%H시 %M분")
-    text = f"\n[시스템 기억 - 최근 사용자의 화면 변경 기록 / 현재 시각 {now_str}]\n" + "\n".join(lines) + "\n"
-    return text, bool(latest.get("deep")) and latest_is_recent
+    text = SCREEN_FULL_HEADER.format(now=now_str) + "\n".join(lines) + "\n"
+    return text, bool(latest.get("deep"))
 
 
 def clean_messages(
