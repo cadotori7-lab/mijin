@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import (
-    MAX_SCREEN_MEMORY, SCREEN_MEMORY_TTL_SEC, LATEST_FULL_SEC, CHAT_SCREEN_REF_SEC,
+    MAX_SCREEN_MEMORY, SCREEN_MEMORY_TTL_SEC, CHAT_SCREEN_REF_SEC,
     SCREEN_FULL_HEADER, SCREEN_REF_HEADER,
     PROFILE_FILES, PROFILE_MAX_CHARS,
     DEEP_HINT, PERSONA_REMINDER,
@@ -106,7 +106,9 @@ def _inject_profile(cleaned: List[Dict[str, Any]]) -> None:
 def _build_screen_memory(now: float, has_new_screen: bool) -> Tuple[str, bool]:
     """화면 기억을 조립한다. 등급은 셋 - 분기 기준은 "이번 턴에 새 캡처가 있었는지" 하나뿐이다.
 
-    - FULL (has_new_screen): 최신 1개만(그것도 충분히 최근일 때만) 전문, 나머지는 압축본.
+    - FULL (has_new_screen): 최신 1개는 전문, 나머지는 압축본. 이번 턴에 실제로 캡처된
+      것이므로 최신 항목의 "신선도"는 더 따지지 않는다 (has_new_screen이 곧 방금 캡처됐다는
+      뜻이라 - REF/NONE에서 "캡처 없이 오래됨" 쪽은 위에서 이미 갈라냈다).
       TTL이 지난 기억은 아예 주입하지 않는다 - "time" 문자열엔 날짜가 없어 모델이
       스스로 얼마나 오래됐는지 판단할 수 없으므로, 자리를 비웠다가 돌아와도 옛 화면을
       "지금 보고 있는 것"처럼 반응하게 된다.
@@ -139,12 +141,10 @@ def _build_screen_memory(now: float, has_new_screen: bool) -> Tuple[str, bool]:
 
     *older, latest = fresh
     lines = [f"- [{o['time']}] {o['brief']}" for o in older]
-
-    latest_is_recent = has_new_screen or (now - latest["ts"] < LATEST_FULL_SEC)
-    lines.append(f"- [{latest['time']}] {latest['full'] if latest_is_recent else latest['brief']}")
+    lines.append(f"- [{latest['time']}] {latest['full']}")
 
     text = SCREEN_FULL_HEADER.format(now=now_str) + "\n".join(lines) + "\n"
-    return text, bool(latest.get("deep")) and latest_is_recent
+    return text, bool(latest.get("deep"))
 
 
 def clean_messages(

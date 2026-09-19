@@ -43,17 +43,16 @@ def _collect(date: str) -> str:
     대화가 가장 중요하므로 먼저 담고, 남는 예산만큼 관찰을 담는다.
     관찰은 수백 건씩 쌓여서 그대로 넣으면 대화가 묻힌다.
     """
-    lines: List[str] = []
-
-    for r in memory.archive_for_date(date):
-        who = "파트너님" if r.get("role") == "user" else "나"
-        t = datetime.fromtimestamp(r["t"] / 1000).strftime("%H:%M")
-        lines.append(f"[{t}] {who}: {r.get('text', '')}")
-
     # 이벤트(찌르기·블라인드 등)도 원료에 넣는다 - 일기 성격에 맞고, 하루 한 번뿐이라
-    # 비용이 거의 없다. 대화 다음·관찰보다 앞에 둬서 대화 우선 원칙을 유지한다.
-    for r in memory.events_for_date(date):
-        who = "파트너님" if r.get("role") == "event" else "나"
+    # 비용이 거의 없다. 스트림별로 이어 붙이면 시간순이 깨지므로(대화 00:36→00:40 뒤에
+    # 00:32 이벤트가 붙는 식) 합친 뒤 t로 한 번에 정렬한다. 관찰보다는 여전히 앞에 둔다
+    # (아래에서 chat_block 다음에 obs_lines를 붙이는 구조 그대로).
+    records = memory.archive_for_date(date) + memory.events_for_date(date)
+    records.sort(key=lambda r: r["t"])
+
+    lines: List[str] = []
+    for r in records:
+        who = "파트너님" if r.get("role") in ("user", "event") else "나"
         t = datetime.fromtimestamp(r["t"] / 1000).strftime("%H:%M")
         lines.append(f"[{t}] {who}: {r.get('text', '')}")
 
