@@ -210,7 +210,7 @@ python sprite/mdp_split.py sprite/mijin4.mdp client/Assets/Sprites
 - `persona.txt` — 캐릭터 설정
 
 번들된 Pretendard 폰트는 SIL OFL 1.1을 따릅니다
-(`client/Assets/Fonts/Pretendard - OFL.txt`).
+(`client/Assets/Fonts/LICENSE.txt`).
 
 투명 창 구현에 [UniWindowController](https://github.com/kirurobo/UniWindowController)(MIT)를
 사용합니다. Package Manager로 설치되며 저장소에 포함되어 있지 않습니다.
