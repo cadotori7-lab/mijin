@@ -1,16 +1,19 @@
 """미진이의 기억 저장소.
 
-파일 넷으로 나눠 쌓는다:
+파일 다섯으로 나눠 쌓는다:
     mem/chat_history.jsonl   최근 대화 (프롬프트에 실림)
     mem/chat_archive.jsonl   밀려난 대화 (프롬프트엔 안 실림, 뷰어·검색용)
     mem/monologue.jsonl      혼잣말 (최근 몇 개만 프롬프트에 실림)
+    mem/events.jsonl         찌르기·블라인드 등 클라이언트가 만든 지문 (최근 몇 개만 프롬프트에 실림)
     mem/episodes.jsonl       날짜별 요약 + 키워드
 
-대화와 혼잣말을 나누는 이유: 한 목록에 섞으면 훨씬 잦은 혼잣말이 사용자와
-나눈 대화를 금방 밀어낸다 (혼잣말만으로 반나절이면 참).
+대화·혼잣말·이벤트를 나누는 이유: 한 목록에 섞으면 훨씬 잦은 혼잣말/이벤트가 사용자와
+나눈 대화를 금방 밀어낸다 (혼잣말만으로 반나절이면 참). 이벤트는 사람이 친 말이 아니라
+클라이언트가 만든 지문이라, 대화와 섞이면 대화 예산(MIJIN_MAX_CHAT_TURNS)을 나눠 먹고
+"찌르면 이렇게 답한다"는 반응이 그대로 학습되듯 반복된다.
 
 레코드 형식은 viewer.py가 읽는 것과 맞췄다 ("t" 밀리초, "role", "text").
-role: user | mijin | self(혼잣말)
+role: user | mijin | self(혼잣말) | event
 """
 
 import json
@@ -19,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from config import (
-    MEM_DIR, MIJIN_MAX_CHAT_TURNS, MIJIN_MAX_MONOLOGUE_TURNS,
+    MEM_DIR, MIJIN_MAX_CHAT_TURNS, MIJIN_MAX_MONOLOGUE_TURNS, MIJIN_MAX_EVENT_TURNS,
     MONOLOGUE_MARK, EPISODE_INJECT_COUNT,
 )
 
@@ -27,12 +30,14 @@ _DIR = Path(MEM_DIR)
 CHAT_FILE = _DIR / "chat_history.jsonl"
 ARCHIVE_FILE = _DIR / "chat_archive.jsonl"
 MONO_FILE = _DIR / "monologue.jsonl"
+EVENT_FILE = _DIR / "events.jsonl"
 EPISODE_FILE = _DIR / "episodes.jsonl"
 
 # 프롬프트에 실을 최근 기록만 메모리에 들고 있는다.
 # 아카이브는 읽지 않는다 (나중에 검색으로 꺼내 쓸 원료).
 _chat: List[Dict[str, Any]] = []
 _mono: List[Dict[str, Any]] = []
+_events: List[Dict[str, Any]] = []
 
 
 # ───────────────── 파일 입출력 ─────────────────
@@ -84,11 +89,12 @@ def _rewrite_jsonl(path: Path, recs: List[Dict[str, Any]]) -> None:
 
 def load() -> None:
     """프록시 시작 때 한 번 부른다. 재시작해도 기억이 이어진다."""
-    global _chat, _mono
+    global _chat, _mono, _events
     _chat = _read_jsonl(CHAT_FILE)
     _mono = _read_jsonl(MONO_FILE)[-MIJIN_MAX_MONOLOGUE_TURNS:]
+    _events = _read_jsonl(EVENT_FILE)[-MIJIN_MAX_EVENT_TURNS * 2:]
     eps = len(_read_jsonl(EPISODE_FILE))
-    print(f"[MEM] 대화 {len(_chat)//2}턴 / 혼잣말 {len(_mono)}건 / 회고 {eps}일치 불러옴")
+    print(f"[MEM] 대화 {len(_chat)//2}턴 / 혼잣말 {len(_mono)}건 / 이벤트 {len(_events)//2}건 / 회고 {eps}일치 불러옴")
 
 
 # ───────────────── 기록하기 ─────────────────
@@ -118,6 +124,25 @@ def add_monologue(line: str) -> None:
         del _mono[:len(_mono) - MIJIN_MAX_MONOLOGUE_TURNS]
     # 혼잣말 파일은 회전하지 않는다. 뷰어에서 하루를 통째로 돌아보는 재미가
     # 있고, 프롬프트에는 메모리의 최근 몇 건만 쓰므로 길어져도 비용이 안 든다.
+
+
+def add_event(event_text: str, line: str) -> None:
+    """찌르기·블라인드 등 클라이언트가 만든 지문 한 턴을 남긴다.
+
+    혼잣말과 달리 지문 쪽 텍스트가 매번 다르므로(연속 횟수 등) 대화와 같은
+    2레코드 형태로 저장한다. 상한을 넘으면 메모리에서만 잘라내고, 파일은
+    회전하지 않는다 (혼잣말과 같은 이유 - 뷰어용 하루 기록, 프롬프트 비용과 무관).
+    """
+    now = int(time.time() * 1000)
+    recs = [
+        {"t": now, "role": "event", "text": event_text},
+        {"t": now + 1, "role": "mijin", "text": line},
+    ]
+    _events.extend(recs)
+    _append_jsonl(EVENT_FILE, recs)
+    cap = MIJIN_MAX_EVENT_TURNS * 2
+    if len(_events) > cap:
+        del _events[:len(_events) - cap]
 
 
 def _rotate_chat() -> None:
@@ -160,10 +185,26 @@ def archive_for_date(date: str) -> List[Dict[str, Any]]:
     return out
 
 
+def events_for_date(date: str) -> List[Dict[str, Any]]:
+    """그날의 이벤트 전체 (찌르기·블라인드 등). 회고를 만들 원료로 쓴다.
+
+    이벤트 파일은 회전하지 않으므로(add_event 참고) 파일을 통째로 읽는다."""
+    import datetime
+    out = []
+    for r in _read_jsonl(EVENT_FILE):
+        t = r.get("t")
+        if not t:
+            continue
+        if datetime.datetime.fromtimestamp(t / 1000).strftime("%Y-%m-%d") == date:
+            out.append(r)
+    out.sort(key=lambda r: r["t"])
+    return out
+
+
 # ───────────────── 프롬프트에 실을 형태로 ─────────────────
 
 def build_history() -> List[Dict[str, str]]:
-    """대화와 혼잣말을 시간순으로 합쳐 메시지 목록으로 만든다."""
+    """대화·혼잣말·이벤트를 시간순으로 합쳐 메시지 목록으로 만든다."""
     merged: List[Dict[str, Any]] = []
 
     for r in _chat:
@@ -174,6 +215,10 @@ def build_history() -> List[Dict[str, str]]:
         t = r.get("t", 0)
         merged.append({"t": t - 1, "role": "user", "content": MONOLOGUE_MARK})
         merged.append({"t": t, "role": "assistant", "content": r.get("text", "")})
+
+    for r in _events:
+        role = "assistant" if r.get("role") == "mijin" else "user"
+        merged.append({"t": r.get("t", 0), "role": role, "content": r.get("text", "")})
 
     merged.sort(key=lambda m: m["t"])
     return [{"role": m["role"], "content": m["content"]} for m in merged]
@@ -205,4 +250,5 @@ def reset() -> Dict[str, int]:
         _chat.clear()
         _rewrite_jsonl(CHAT_FILE, [])
     _mono.clear()
+    _events.clear()
     return {"archived": moved // 2}

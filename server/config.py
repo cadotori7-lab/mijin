@@ -270,6 +270,8 @@ MEM_DIR = BASE_DIR / "mem"
 PERSONA_FILE = BASE_DIR / "persona.txt"   # 파일이 바뀌면 mijin.py가 다음 요청에 바로 반영한다
 MIJIN_MAX_CHAT_TURNS = 16        # 프롬프트에 실을 대화 왕복 수 (넘치면 chat_archive.jsonl로)
 MIJIN_MAX_MONOLOGUE_TURNS = 4    # 프롬프트에 실을 혼잣말 수
+MIJIN_MAX_EVENT_TURNS = 2        # 프롬프트에 실을 이벤트(찌르기·블라인드 등) 수. 지문이라
+                                  # 정보량이 적고 반복되기 쉬워서 대화보다 훨씬 적게 싣는다
 MONOLOGUE_MARK = "(화면을 봄)"    # 혼잣말 기록에 남길 때 쓰는 짧은 표시 (매번 똑같은
                                   # MONOLOGUE_PROMPT 지시문을 그대로 쌓으면 낭비라서)
 EPISODE_INJECT_COUNT = 2         # 시스템 메시지에 붙일 최근 회고(episodes.jsonl) 수

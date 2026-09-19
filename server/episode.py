@@ -50,6 +50,13 @@ def _collect(date: str) -> str:
         t = datetime.fromtimestamp(r["t"] / 1000).strftime("%H:%M")
         lines.append(f"[{t}] {who}: {r.get('text', '')}")
 
+    # 이벤트(찌르기·블라인드 등)도 원료에 넣는다 - 일기 성격에 맞고, 하루 한 번뿐이라
+    # 비용이 거의 없다. 대화 다음·관찰보다 앞에 둬서 대화 우선 원칙을 유지한다.
+    for r in memory.events_for_date(date):
+        who = "파트너님" if r.get("role") == "event" else "나"
+        t = datetime.fromtimestamp(r["t"] / 1000).strftime("%H:%M")
+        lines.append(f"[{t}] {who}: {r.get('text', '')}")
+
     chat_block = "\n".join(lines)
     budget = max(0, EPISODE_MAX_MATERIAL - len(chat_block))
 

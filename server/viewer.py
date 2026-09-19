@@ -22,12 +22,15 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from config import MEM_DIR, OBSERVATION_LOG as _OBS
 
 MEM = Path(MEM_DIR)
-CHAT_FILES = [MEM / "chat_archive.jsonl", MEM / "chat_history.jsonl"]
+CHAT_FILES = [MEM / "chat_archive.jsonl", MEM / "chat_history.jsonl", MEM / "events.jsonl"]
 MONO_FILE = MEM / "monologue.jsonl"
 EPISODE_FILE = MEM / "episodes.jsonl"
 OBSERVATION_LOG = Path(_OBS)
 
-SPEAKER_NAMES = {"user": "민재", "mijin": "미진", "self": "미진(혼잣말)"}
+# events.jsonl은 role이 "event"/"mijin"으로 대화와 같은 2레코드 형태라 CHAT_FILES에
+# 같이 넣어 시간순으로 섞는다. "event"만 "상황"으로 구분 표시해, 찌르기 같은
+# 지문이 사람이 친 말처럼 보이지 않게 한다.
+SPEAKER_NAMES = {"user": "민재", "mijin": "미진", "self": "미진(혼잣말)", "event": "상황"}
 # =======================================
 
 router = APIRouter(prefix="/viewer")

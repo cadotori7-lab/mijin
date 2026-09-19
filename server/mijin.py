@@ -6,10 +6,14 @@
 
 Unity는 이 한 곳만 호출하면 된다:
     POST /mijin/chat
-    {"kind": "chat" | "monologue" | "screen",
+    {"kind": "chat" | "monologue" | "screen" | "event",
      "text": "사용자 입력 (없으면 생략)",
      "image": "base64 스크린샷 (없으면 생략)"}
   ->  {"status": "ok" | "skipped", "text": "대사"}
+
+kind="event"는 찌르기·블라인드처럼 사람이 친 말이 아니라 클라이언트가 만든
+지문이다. chat과 섞어 쌓으면 대화 기록 예산을 나눠 먹으므로 memory.py에서
+따로 쌓는다 (memory.py 모듈 docstring 참고).
 """
 
 import asyncio
@@ -46,7 +50,7 @@ _persona_cache = {"key": None, "text": ""}
 
 
 class MijinRequest(BaseModel):
-    kind: str = "chat"          # chat | monologue | screen
+    kind: str = "chat"          # chat | monologue | screen | event
     text: Optional[str] = None
     image: Optional[str] = None  # base64 (data URI 여부는 vision.py가 알아서 처리)
     window: Optional[str] = None      # 추가
@@ -156,8 +160,10 @@ async def mijin_chat(req: MijinRequest):
         )
 
         # 화면이 그대로면 혼잣말은 통째로 건너뛴다 (요금이 여기서 가장 많이 샌다).
-        # 반면 사용자가 말을 걸었다면 화면과 무관하게 대답해야 한다.
-        if status == "skipped" and req.kind != "chat":
+        # 반면 사용자가 말을 걸었거나(chat) 이벤트가 일어났다면(event) 화면과
+        # 무관하게 대답해야 한다. 이벤트는 지금 이미지를 안 보내 이 분기를 실제로
+        # 타진 않지만, 나중에 이미지를 붙여도 찌르기가 무시되지 않도록 맞춰둔다.
+        if status == "skipped" and req.kind not in ("chat", "event"):
             return {"status": "skipped", "text": ""}
 
     # ── 2. 이번 턴의 사용자 발화 ──────────────────
@@ -196,6 +202,8 @@ async def mijin_chat(req: MijinRequest):
     # 프록시를 재시작해도 기억이 이어지게 한다.
     if req.kind == "chat":
         memory.add_chat(user_text, line)
+    elif req.kind == "event":
+        memory.add_event(user_text, line)
     else:
         memory.add_monologue(line)
 
