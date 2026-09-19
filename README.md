@@ -181,8 +181,16 @@ python tools/mdp_split.py mijin.mdp client/Assets/Sprites
 캐릭터 그림과 설정은 직접 만든 것이다. 음성은 별도 서비스를 사용하므로 해당 서비스의 약관을 따른다.
 
 ## 라이선스
-# 캐릭터 에셋 라이선스
 
-이 폴더의 그림과 캐릭터 미진의 설정은 저작자(Kim Minjae)가 권리를 보유합니다.
-저장소 루트의 MIT 라이선스는 소스 코드에만 적용되며, 이 에셋에는 적용되지 않습니다.
-복제, 수정, 재배포를 허락하지 않습니다.
+소스 코드는 MIT (`LICENSE`).
+
+캐릭터 미진의 그림과 설정은 직접 만든 것으로, 재사용을 허락하지 않습니다.
+- `sprite/` — 메디방 원본
+- `client/Assets/Sprites/` — 분리된 PNG
+- `persona.txt` — 캐릭터 설정
+
+번들된 Pretendard 폰트는 SIL OFL 1.1을 따릅니다
+(`client/Assets/Fonts/Pretendard - OFL.txt`).
+
+투명 창 구현에 [UniWindowController](https://github.com/kirurobo/UniWindowController)(MIT)를
+사용합니다. Package Manager로 설치되며 저장소에 포함되어 있지 않습니다.
