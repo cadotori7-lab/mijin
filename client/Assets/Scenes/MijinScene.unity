@@ -848,7 +848,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MijinScreenCapture
   captureWidth: 0
   jpegQuality: 85
-  excludeSelfFromCapture: 1
+  excludeSelfFromCapture: 0
   blind: {fileID: 236882376}
 --- !u!114 &236882371
 MonoBehaviour:

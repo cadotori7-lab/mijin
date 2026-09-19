@@ -10,7 +10,7 @@
 
 - **화면을 본다** — 주기적으로 화면을 캡처해 OCR과 로컬 비전 모델로 읽는다
 - **말을 건다** — 읽은 내용을 바탕으로 캐릭터가 한 마디 한다. 목소리가 나오고 입이 같이 움직인다
-- **기억한다** — 대화와 관찰을 파일로 쌓고, 하루가 지나면 그날의 회고를 스스로 쓴다
+- **기억한다** — 대화와 관찰을 파일로 쌓고, 하루가 지나면 그날의 회고를 스스로 쓴다. 며칠치 기록에서 사용자에 대해 반복되는 특징도 추려 둔다
 - **가려진다** — 단축키 한 번으로 화면을 아예 안 보게 만들 수 있다
 - **돌아본다** — 웹 뷰어에서 날짜별 대화·관찰·회고를 읽을 수 있다
 
@@ -38,10 +38,12 @@ server/                FastAPI 프록시
   mijin.py               /mijin/chat 엔드포인트
   memory.py              jsonl 기억 저장소
   episode.py             하루치 회고 생성
+  distill.py             관찰 기록에서 사용자 프로필 증류
   viewer.py              /viewer 웹 뷰어
   persona.txt            캐릭터 설정
+  .env, profile.txt, mem/ 등 키와 기억 파일도 이 폴더 안에 둔다 (git에는 올라가지 않는다)
 client/                Unity 프로젝트
-tools/mdp_split.py     메디방 .mdp를 레이어별 PNG로 분리
+sprite/mdp_split.py     메디방 .mdp를 레이어별 PNG로 분리
 ```
 
 ## 설계에서 신경 쓴 것
@@ -89,14 +91,17 @@ tools/mdp_split.py     메디방 .mdp를 레이어별 PNG로 분리
 혼잣말은 사용자와의 대화보다 훨씬 잦다. 한 목록에 섞으면 혼잣말만으로 반나절이면 차서 진짜 대화가 밀려난다.
 
 ```
-mem/chat_history.jsonl    최근 대화        프롬프트에 실림
-mem/chat_archive.jsonl    밀려난 대화      뷰어와 검색용
-mem/monologue.jsonl       혼잣말           최근 몇 건만 프롬프트에
-mem/episodes.jsonl        날짜별 회고      최근 며칠치가 프롬프트에
-observations.jsonl        화면 관찰 기록   회고의 원료
+server/mem/chat_history.jsonl    최근 대화        프롬프트에 실림
+server/mem/chat_archive.jsonl    밀려난 대화      뷰어와 검색용
+server/mem/monologue.jsonl       혼잣말           최근 몇 건만 프롬프트에
+server/mem/episodes.jsonl        날짜별 회고      최근 며칠치가 프롬프트에
+server/observations.jsonl        화면 관찰 기록   회고와 프로필 증류의 원료
+server/distilled_profile.txt     증류한 프로필    "관찰 기반 추정"으로 표시해 프롬프트에
 ```
 
 회고는 그날의 대화와 관찰을 모아 캐릭터 시점의 일기로 쓴다. 대화를 먼저 담고 남는 예산만큼 관찰을 담는데, 관찰은 수백 건씩 쌓여서 그대로 넣으면 대화가 묻히기 때문이다.
+
+증류는 최근 2주치 기록에서 자주 쓰는 프로그램, 반복되는 관심사, 생활 리듬만 짧은 목록으로 뽑는다. 원료가 화면 OCR이라 화면에 우연히 뜬 문장이 프로필로 둔갑할 수 있어서, OCR 전문은 넣지 않고 창 제목과 짧은 요약만 쓴다. 결과에서도 지시문처럼 보이는 줄은 걸러낸다. 확정된 사실(`profile.txt`)과는 다른 라벨로 넣어, 모델이 추정과 사실을 구분하게 한다. 회고와 증류는 하루 한 번이라 추론(thinking)을 켜 둔다.
 
 ### 자기 자신은 찍히지 않는다
 
@@ -123,13 +128,13 @@ pip install -r requirements.txt
 ollama pull qwen3-vl:8b-instruct
 ```
 
-`.env` 파일에 클라우드 API 키를 넣는다.
+`server/.env` 파일에 클라우드 API 키를 넣는다.
 
 ```
 OLLAMA_CLOUD_API_KEY=your-key-here
 ```
 
-`profile.example.txt`를 `profile.txt`로 복사해 자신에 대한 내용을 적는다. 비워 둬도 동작한다.
+`server/profile.example.txt`를 `server/profile.txt`로 복사해 자신에 대한 내용을 적는다. 비워 둬도 동작한다.
 
 ```bash
 python proxy_server.py
@@ -152,27 +157,34 @@ Unity로 `client`를 열어 빌드한다. 빌드 전에 Player Settings에서 �
 
 | 동작 | 방법 |
 |---|---|
-| 말 걸기 | 캐릭터 클릭 |
-| 대화창 열기 | `Ctrl` + `Alt` + `M` |
+| 말 걸기 | 캐릭터를 짧게 클릭 (찌르기) |
+| 대화창 열기 | `Alt` + `B` |
 | 가리기 | `Ctrl` + `Alt` + `B` |
 | 설정 메뉴 | 캐릭터 우클릭 |
-| 옮기기 / 던지기 | 캐릭터를 끌기 |
+| 들어올리기 / 던지기 | 캐릭터를 0.4초 이상 누른 채 끌기 |
+
+단축키는 Unity 씬의 각 컴포넌트에서 바꿀 수 있다.
 
 ## 캐릭터 그림 작업
 
 메디방 페인트로 그린 `.mdp`를 레이어 구조 그대로 PNG로 뽑는다.
 
 ```
-📁 body     idle, walk_01, walk_02
-📁 eyes     open, closed
-📁 mouth    closed, half, open
+📁 body     idle, walk_01, walk_02, single_leg_stand_01, single_leg_stand_02,
+           hold_01, hold_02, fly
+📁 eyes     open, closed, blind, excited
+📁 mouth    closed, half, open, focus
 ```
 
 ```bash
-python tools/mdp_split.py mijin.mdp client/Assets/Sprites
+python sprite/mdp_split.py sprite/mijin4.mdp client/Assets/Sprites
 ```
 
+`sprite/routine.bat`이 같은 일을 한 번에 한다.
+
 폴더 안의 항목 하나가 PNG 한 장이 된다. 모든 PNG는 원래 캔버스 크기 그대로 저장되므로 Unity에서 겹치기만 하면 위치가 맞는다. Unity의 임포트 설정은 `.meta` 파일에 남으므로, 그림을 고치고 다시 뽑아도 설정은 유지된다.
+
+새 PNG를 처음 넣으면 Unity가 Sprite Mode를 Multiple로 잡아 그림을 조각내 버린다. 다른 스프라이트와 똑같이 **Single, Pivot Custom (0.5, 0.253)**으로 바꿔야 위치가 어긋나지 않는다.
 
 ## 알아둘 것
 
