@@ -8,6 +8,7 @@ mem/
 observations.jsonl
 profile.txt
 distilled_profile.txt
+last_prompt.txt
 
 # 파이썬
 .venv/

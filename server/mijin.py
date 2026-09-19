@@ -27,7 +27,7 @@ import memory
 from config import (
     CLOUD_BASE_URL, CLOUD_API_KEY, TARGET_MODEL,
     GEMMA_TEMPERATURE, GEMMA_TOP_P, CLOUD_TIMEOUT_SEC,
-    PERSONA_FILE,
+    PERSONA_FILE, DUMP_PROMPT, LAST_PROMPT_FILE,
 )
 from vision import extract_and_analyze_image
 from context import clean_messages
@@ -123,6 +123,21 @@ async def _call_cloud(messages: List[Dict[str, Any]]) -> Optional[str]:
         return None
 
 
+def _dump_prompt(cleaned: List[Dict[str, Any]]) -> None:
+    """클라우드로 나가기 직전의 messages를 last_prompt.txt에 덮어쓴다 (DUMP_PROMPT=True일 때만).
+
+    누적하지 않고 매번 덮어쓴다 - 쌓으면 디스크가 차고, 지난 화면 내용이 계속 남는다."""
+    lines = []
+    for msg in cleaned:
+        lines.append(f"───── {msg.get('role', '?')} ─────")
+        lines.append(str(msg.get("content", "")))
+        lines.append("")
+    try:
+        LAST_PROMPT_FILE.write_text("\n".join(lines), encoding="utf-8")
+    except OSError as e:
+        print(f"[WARN] 프롬프트 덤프 실패: {e}")
+
+
 @router.post("/mijin/chat")
 async def mijin_chat(req: MijinRequest):
     asyncio.create_task(episode.ensure_recent())
@@ -161,6 +176,9 @@ async def mijin_chat(req: MijinRequest):
     messages.append({"role": "user", "content": user_text})
 
     cleaned = clean_messages(messages, screen_record)
+
+    if DUMP_PROMPT:
+        _dump_prompt(cleaned)
 
     # ── 4. 클라우드 호출 ──────────────────────────
     raw = await _call_cloud(cleaned)
