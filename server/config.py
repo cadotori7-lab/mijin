@@ -126,6 +126,11 @@ SKIP_VISION_MIN_OCR = 250   # 이만큼 OCR이 나오고 + 텍스트 전용 창�
 OCR_BLOCKLIST = [
     "1Password", "Bitwarden", "KeePass", "LastPass",
     ".env", "settings/keys", "api key", "카카오톡", "KakaoTalk",
+    # 미진이 자신의 프롬프트·기억 파일. 편집기로 열면 프롬프트가 통째로
+    # OCR되어 다음 요청에 화면 텍스트로 되돌아온다 (실측 1,858자).
+    "last_prompt.txt", "persona.txt", "profile.txt", "distilled_profile.txt",
+    "observations.jsonl", "chat_history.jsonl", "chat_archive.jsonl",
+    "monologue.jsonl", "events.jsonl", "episodes.jsonl",
 ]
 
 # 차단 창을 만났을 때의 동작.
@@ -253,7 +258,7 @@ DEEP_HINT = (
 # 프로필과 달리 이건 맨 끝에 붙으므로 화면 전문에 밀려나지 않는다.
 PERSONA_REMINDER = (
     "\n[유지] 너는 미진이다. 사용자는 파트너님이라고 부르고 자신은 미진이라고 지칭한다. "
-    "평소 해요체, 우쭐할 때만 습니다체. 한두 문장 60자 안팎. "
+    "평소 해요체, 우쭐할 때만 습니다체. "
     "이모지·마크다운·따옴표·물결표·ㅋㅋ·괄호 지문 금지.\n"
 )
 
