@@ -7,7 +7,7 @@
 <!-- TODO: 미진이가 바탕화면에서 말하는 GIF 또는 스크린샷 -->
 <img width="560" height="519" alt="hold" src="https://github.com/user-attachments/assets/9ae34532-9eef-462b-b165-e270f743e81d" />
 <img width="580" height="423" alt="poke" src="https://github.com/user-attachments/assets/962552b2-5453-48e7-86cd-8dfa2196e4bd" />
-<img width="1620" height="640" alt="screen" src="https://github.com/user-attachments/assets/bef005c5-1b1f-4f9d-bd87-a059af36866f" />
+<img width="820" height="640" alt="screen" src="https://github.com/user-attachments/assets/bef005c5-1b1f-4f9d-bd87-a059af36866f" />
 
 ## 이런 걸 만들었다
 
