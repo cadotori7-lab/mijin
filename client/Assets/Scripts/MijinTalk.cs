@@ -49,8 +49,11 @@ public class MijinTalk : MonoBehaviour
 
     public void OnPoked()
     {
-        // 한동안 안 찔렀으면 다시 센다
-        if (Time.time - _lastPokeTime > 60f) _pokeCount = 0;
+        // PlayPoke()가 안에서 WakeUp()을 먼저 부르므로, 자고 있었는지는 그 전에 읽어둬야 한다.
+        bool wasSleeping = mijin != null && mijin.IsSleeping;
+
+        // 한동안 안 찔렀거나 자다가 깼으면 다시 센다 - 자다 깬 건 짜증의 누적이 아니다
+        if (wasSleeping || Time.time - _lastPokeTime > 60f) _pokeCount = 0;
         _lastPokeTime = Time.time;
         _pokeCount++;
 
@@ -58,7 +61,10 @@ public class MijinTalk : MonoBehaviour
         // 찔렀는데 반응이 없으면 클릭이 씹힌 것처럼 느껴진다.
         if (mijin != null) mijin.PlayPoke();
 
-        Talk("event", $"(파트너님이 미진이를 쿡 찌른다. 이번이 연속 {_pokeCount}번째다.)");
+        string text = wasSleeping
+            ? "(파트너님이 자고 있던 미진이를 쿡 찔러 깨운다.)"
+            : $"(파트너님이 미진이를 쿡 찌른다. 이번이 연속 {_pokeCount}번째다.)";
+        Talk("event", text);
     }
 
     /// <summary>

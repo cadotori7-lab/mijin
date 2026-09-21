@@ -640,6 +640,7 @@ GameObject:
   - component: {fileID: 236882374}
   - component: {fileID: 236882375}
   - component: {fileID: 236882376}
+  - component: {fileID: 236882377}
   m_Layer: 0
   m_Name: Mijin
   m_TagString: Untagged
@@ -700,6 +701,16 @@ MonoBehaviour:
   smugHoldSeconds: 0.9
   squashAmount: 0.22
   bounceSquashSeconds: 0.14
+  pokeSquashAmount: 0.14
+  pokeSquashSeconds: 0.18
+  pokeExpressionSeconds: 2
+  bodySleep01: {fileID: 21300000, guid: cf963a745afbc0646a2e5d3f6e156e2f, type: 3}
+  bodySleep02: {fileID: 21300000, guid: 2715ea0576578a948a69d6508b37503c, type: 3}
+  eyesSleep: {fileID: 21300000, guid: 01a1e1e81eedd694489d561fa36143de, type: 3}
+  mouthSleep: {fileID: 21300000, guid: 9614e5cb57bd0654c83b7efd4f2792ee, type: 3}
+  sleepSwapSeconds: 1.6
+  sleepOffsetY: 1
+  wakeBlinkSeconds: 0.25
   landOffsetY: -0.5
   flyOffsetY: 0.14
   eyesOpen: {fileID: 21300000, guid: ce528cd163576494eba48ca78bcdf7e6, type: 3}
@@ -867,10 +878,10 @@ MonoBehaviour:
   capture: {fileID: 236882370}
   blind: {fileID: 236882376}
   enableMonologue: 1
-  intervalRange: {x: 70, y: 120}
+  intervalRange: {x: 100, y: 140}
   startDelay: 10
   fullscreenIntervalMultiplier: 1.3
-  idleSkipSeconds: 180
+  idleSkipSeconds: 10
   skipWhenFullscreen: 0
   backoffMultiplier: 1.6
   maxInterval: 1200
@@ -1066,6 +1077,25 @@ MonoBehaviour:
   onRevealText: "(\uD30C\uD2B8\uB108\uB2D8\uC774 \uC190\uC744 \uCE58\uC6E0\uB2E4.
     \uB2E4\uC2DC \uD654\uBA74\uC774 \uBCF4\uC778\uB2E4.)"
   reactWhenToggled: 1
+--- !u!114 &236882377
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236882364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63d8980b5751f5a42af989828ab62a8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MijinSleep
+  mijin: {fileID: 236882366}
+  capture: {fileID: 236882370}
+  talk: {fileID: 236882369}
+  sleepAfterSeconds: 180
+  pollSeconds: 1
+  wakeAfterActiveSeconds: 5
+  wakeIdleGraceSeconds: 3
 --- !u!1 &244518084
 GameObject:
   m_ObjectHideFlags: 0

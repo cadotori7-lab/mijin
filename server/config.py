@@ -266,7 +266,7 @@ PERSONA_REMINDER = (
 # 켜면 클라우드로 나가는 직전의 messages를 사람이 읽을 수 있는 형태로
 # last_prompt.txt에 매번 덮어쓴다. 화면에서 읽은 내용이 그대로 들어가므로
 # 평소엔 꺼두고, 프롬프트 구조를 바꿨을 때만 잠깐 켜서 확인한다.
-DUMP_PROMPT = False
+DUMP_PROMPT = True
 LAST_PROMPT_FILE = BASE_DIR / "last_prompt.txt"
 
 # ================= 9. 미진이 본체(Unity) 기억 저장소 =================
