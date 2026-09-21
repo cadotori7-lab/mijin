@@ -641,6 +641,7 @@ GameObject:
   - component: {fileID: 236882375}
   - component: {fileID: 236882376}
   - component: {fileID: 236882377}
+  - component: {fileID: 236882378}
   m_Layer: 0
   m_Name: Mijin
   m_TagString: Untagged
@@ -711,6 +712,11 @@ MonoBehaviour:
   sleepSwapSeconds: 1.6
   sleepOffsetY: 1
   wakeBlinkSeconds: 0.25
+  headCenter: {x: -0.81, y: 4.34}
+  headSize: {x: 2.88, y: 2.98}
+  patSquashAmount: 0.06
+  patSquashSeconds: 0.3
+  mouthPat: {fileID: 21300000, guid: 647293b1310e8b9489bc8ec048f02e99, type: 3}
   landOffsetY: -0.5
   flyOffsetY: 0.14
   eyesOpen: {fileID: 21300000, guid: ce528cd163576494eba48ca78bcdf7e6, type: 3}
@@ -1096,6 +1102,27 @@ MonoBehaviour:
   pollSeconds: 1
   wakeAfterActiveSeconds: 5
   wakeIdleGraceSeconds: 3
+--- !u!114 &236882378
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236882364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 128c5613760b444459753437d1d19d41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MijinPat
+  mijin: {fileID: 236882366}
+  talk: {fileID: 236882369}
+  minStrokeDistance: 0.35
+  strokesToStart: 2
+  strokeWindowSeconds: 1.2
+  patTimeoutSeconds: 0.5
+  eventCooldownSeconds: 60
+  onPatText: "(\uD30C\uD2B8\uB108\uB2D8\uC774 \uBBF8\uC9C4\uC774\uC758 \uBA38\uB9AC\uB97C
+    \uC4F0\uB2E4\uB4EC\uB294\uB2E4.)"
 --- !u!1 &244518084
 GameObject:
   m_ObjectHideFlags: 0

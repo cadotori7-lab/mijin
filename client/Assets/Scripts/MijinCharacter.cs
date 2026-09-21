@@ -76,6 +76,18 @@ public class MijinCharacter : MonoBehaviour
     [Tooltip("깨어날 때 눈을 감은 채로 버티는 시간. 바로 뜨면 스위치처럼 보인다.")]
     public float wakeBlinkSeconds = 0.25f;
 
+    [Header("머리 영역 (로컬 좌표, 쓰다듬기 판정용)")]
+    public Vector2 headCenter = new Vector2(-0.81f, 4.34f);
+    public Vector2 headSize = new Vector2(2.88f, 2.98f);
+
+    [Header("쓰다듬기")]
+    [Tooltip("눌리는 정도. 찌르기(0.14)보다 얕다 — 때리는 게 아니라 쓰다듬는 것이다.")]
+    [Range(0f, 0.5f)] public float patSquashAmount = 0.06f;
+    [Tooltip("한 획의 찌그러짐이 펴지는 시간. 획 간격보다 조금 길어야 이어져 보인다.")]
+    public float patSquashSeconds = 0.3f;
+    [Tooltip("쓰다듬을 때 입. 비워두면 표정이 안 바뀐다(SetExpression이 null을 건드리지 않는다).")]
+    public Sprite mouthPat;
+
     [Header("자세별 높이 보정 (세 파츠를 함께 옮긴다)")]
     [Tooltip("착지 자세는 발이 idle보다 50px 위에 그려져 있어 그만큼 내려야 바닥에 닿는다.")]
     public float landOffsetY = -0.50f;
@@ -301,7 +313,17 @@ public class MijinCharacter : MonoBehaviour
         StopSquash();
         _squashRoutine = StartCoroutine(SquashRoutine(bounceSquashSeconds, squashAmount * 0.7f));
     }
- 
+
+    /// <summary>
+    /// 쓰다듬는 획 하나. 자세·상태와 무관하게(자는 중에도) 찌그러짐만 준다 - 깨우지 않는다.
+    /// 표정·서버 이벤트는 MijinPat이 CanAct()를 보고 따로 건다.
+    /// </summary>
+    public void PlayPatStroke()
+    {
+        StopSquash();
+        _squashRoutine = StartCoroutine(SquashRoutine(patSquashSeconds, patSquashAmount));
+    }
+
     /// <summary>찔렸을 때. 위아래로 살짝 눌리고 삐진 표정을 잠깐 유지한다.</summary>
     public void PlayPoke()
     {
@@ -379,6 +401,9 @@ public class MijinCharacter : MonoBehaviour
         {
             bodyRenderer.sprite = bodyIdle;
             SetEyes(eyesOpen);
+            // 코루틴 대기가 정확히 holdSeconds만큼만 걸린다는 보장이 없으니
+            // (프레임 오차로 한 틱 남아 있으면 CloseMouth()가 무시된다) 직접 끈다
+            _mouthHoldUntil = 0f;
             if (!_talking) CloseMouth();
         }
     }
@@ -390,6 +415,7 @@ public class MijinCharacter : MonoBehaviour
     {
         if (_pose == PoseKind.Sleep) return;
         if (IsHeld || _pose != PoseKind.Idle) return;   // 들렸거나 날거나 착지 중에 잠들면 자세가 싸운다
+        if (_talking) return;   // 말하는 중엔 잠들지 않는다 (몸만 자고 입은 립싱크가 계속 몬다)
 
         StopPose();
         StopSquash();
@@ -487,8 +513,11 @@ public class MijinCharacter : MonoBehaviour
         }
     }
  
-    /// <summary>스스로 움직여도 되는 상태인지 (들림·비행·착지 중이 아님).</summary>
-    private bool CanAct() => !IsHeld && _pose == PoseKind.Idle;
+    /// <summary>
+    /// 스스로 움직여도 되는 상태인지 (들림·비행·착지·잠 중이 아님).
+    /// 쓰다듬기(MijinPat)가 표정·이벤트를 걸어도 되는지 판단하는 데도 쓴다.
+    /// </summary>
+    public bool CanAct() => !IsHeld && _pose == PoseKind.Idle;
  
     private IEnumerator WalkAnimationLoop()
     {
@@ -526,8 +555,10 @@ public class MijinCharacter : MonoBehaviour
  
     private IEnumerator StandOnOneLeg()
     {
-        // 말하는 동안은 립싱크가 매 프레임 입을 몰고 있으니 건드리지 않는다
-        if (mouthFocus != null && !_talking) mouthRenderer.sprite = mouthFocus;
+        // 말하는 동안은 립싱크가 매 프레임 입을 몰고 있으니 건드리지 않는다.
+        // MouthHeld(찌르기·착지 홀드)도 마찬가지로 존중해야 한다 - 안 그러면 찌르고
+        // 2초 안에 한발서기가 시작될 때 삐진 입이 조용히 지워진다.
+        if (mouthFocus != null && !_talking && !MouthHeld) mouthRenderer.sprite = mouthFocus;
  
         float until = Time.time + Random.Range(standDurationRange.x, standDurationRange.y);
         bool flip = false;
@@ -602,7 +633,25 @@ public class MijinCharacter : MonoBehaviour
         _facing = dir > 0 ? 1 : -1;
         ApplyFacing();
     }
- 
+
+    /// <summary>
+    /// 로컬 좌표(transform.InverseTransformPoint 결과)가 머리 영역 안인지.
+    /// 쓰다듬기(MijinPat) 판정에 쓴다. 로컬 좌표라 좌우 반전·찌그러짐이 자동으로 상쇄된다.
+    /// </summary>
+    public bool IsPointInHead(Vector3 localPoint)
+    {
+        Vector2 half = headSize * 0.5f;
+        return Mathf.Abs(localPoint.x - headCenter.x) <= half.x
+            && Mathf.Abs(localPoint.y - headCenter.y) <= half.y;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.matrix = transform.localToWorldMatrix;
+        Gizmos.DrawWireCube(headCenter, headSize);
+    }
+
     /// <summary>
     /// TTS 재생 중 음량(0~1)에 맞춰 입을 움직인다.
     /// 오디오 재생 쪽에서 매 프레임 호출하면 된다.
