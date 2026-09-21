@@ -144,21 +144,24 @@ public class MijinPat : MonoBehaviour
     private void StartPatting()
     {
         _isPatting = true;
-
-        // 자는 중·들림·비행·착지 중에는 깨우거나 이벤트를 보내지 않는다
-        // (찌그러짐은 RegisterStroke에서 이미 줬다)
-        if (!mijin.CanAct()) return;
-        if (Time.time - _lastEventTime < eventCooldownSeconds) return;
-
-        _lastEventTime = Time.time;
-        if (talk != null) talk.Talk("event", onPatText);
     }
 
     private void EndPatting()
     {
         _isPatting = false;
         _strokes = 0;
-        if (mijin.CanAct()) mijin.ResetExpression();
+        if (!mijin.CanAct())
+        {
+            // 자는 중·들림·비행·착지 중에는 깨우거나 이벤트를 보내지 않는다
+            // (찌그러짐은 RegisterStroke에서 이미 줬다)
+            return;
+        }
+
+        mijin.ResetExpression();
+
+        if (Time.time - _lastEventTime < eventCooldownSeconds) return;
+        _lastEventTime = Time.time;
+        if (talk != null) talk.Talk("event", onPatText);
     }
 
     private void CancelPat()
