@@ -54,6 +54,10 @@ public class MijinTalk : MonoBehaviour
         _lastPokeTime = Time.time;
         _pokeCount++;
 
+        // Talk()는 IsBusy면 조용히 반환하지만 모션은 응답 대기 중에도 나와야 한다 —
+        // 찔렀는데 반응이 없으면 클릭이 씹힌 것처럼 느껴진다.
+        if (mijin != null) mijin.PlayPoke();
+
         Talk("event", $"(파트너님이 미진이를 쿡 찌른다. 이번이 연속 {_pokeCount}번째다.)");
     }
 

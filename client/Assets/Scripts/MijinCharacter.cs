@@ -56,6 +56,14 @@ public class MijinCharacter : MonoBehaviour
     [Tooltip("튕길 때의 짧은 찌그러짐 시간 (자세는 바꾸지 않는다)")]
     public float bounceSquashSeconds = 0.14f;
  
+    [Header("찌르기")]
+    [Tooltip("찌를 때 눌리는 정도. 튕김(squashAmount * 0.7)보다 약하게 둔다.")]
+    [Range(0f, 0.5f)] public float pokeSquashAmount = 0.14f;
+    [Tooltip("눌렸다 펴지는 시간. 충돌이 아니라 '눌림'이라 튕김보다 살짝 길다.")]
+    public float pokeSquashSeconds = 0.18f;
+    [Tooltip("삐진 표정을 유지할 시간. 이 안에 대사가 나오면 립싱크가 이어받는다.")]
+    public float pokeExpressionSeconds = 2f;
+ 
     [Header("자세별 높이 보정 (세 파츠를 함께 옮긴다)")]
     [Tooltip("착지 자세는 발이 idle보다 50px 위에 그려져 있어 그만큼 내려야 바닥에 닿는다.")]
     public float landOffsetY = -0.50f;
@@ -123,6 +131,7 @@ public class MijinCharacter : MonoBehaviour
     private PoseKind _pose = PoseKind.Idle;
     private Coroutine _poseRoutine;
     private Coroutine _squashRoutine;
+    private Coroutine _pokeExpressionRoutine;
  
     // 걷기 프레임 순서. idle을 사이에 끼워 다리가 모이는 중간 단계를 만든다.
     private Sprite[] _walkCycle;
@@ -133,6 +142,8 @@ public class MijinCharacter : MonoBehaviour
     private bool _focusMouth;
     private bool _talking;      // 음성이 매 프레임 입을 직접 몰고 있는 동안(립싱크)
     private Sprite _baseEyes;   // 깜빡임이 끝나면 돌아갈 눈
+    private float _mouthHoldUntil;   // 이 시각까지는 집중・기본이 입을 못 건드린다 (립싱크는 예외)
+    private bool MouthHeld => Time.time < _mouthHoldUntil;
  
     // localScale에 세 가지가 겹쳐 있다. 따로 들고 있다가 한 번에 합쳐 적용한다.
     //   _scale  : 메뉴에서 정하는 크기
@@ -274,6 +285,31 @@ public class MijinCharacter : MonoBehaviour
         _squashRoutine = StartCoroutine(SquashRoutine(bounceSquashSeconds, squashAmount * 0.7f));
     }
  
+    /// <summary>찔렸을 때. 위아래로 살짝 눌리고 삐진 표정을 잠깐 유지한다.</summary>
+    public void PlayPoke()
+    {
+        StopSquash();
+        _squashRoutine = StartCoroutine(SquashRoutine(pokeSquashSeconds, pokeSquashAmount));
+ 
+        // 착지 연출 중에는 LandRoutine이 표정을 소유하므로 덮지 않는다.
+        // 자세(_pose)와 걷기 코루틴은 그대로 둔다 — 찌르기는 제자리에서 일어나는 반응이다.
+        if (CanAct())
+        {
+            SetExpression(eyesUpset, mouthUpset, pokeExpressionSeconds);
+ 
+            if (_pokeExpressionRoutine != null) StopCoroutine(_pokeExpressionRoutine);
+            _pokeExpressionRoutine = StartCoroutine(RevertPokeExpression(pokeExpressionSeconds));
+        }
+    }
+ 
+    private IEnumerator RevertPokeExpression(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        _pokeExpressionRoutine = null;
+        // 그 사이 들렸거나 자세가 바뀌었으면 그쪽 연출이 이긴다
+        if (_pose == PoseKind.Idle && !IsHeld) ResetExpression();
+    }
+ 
     /// <summary>바닥에 내려앉는 순간. 웅크린 자세 + 찌그러짐 + 우쭐한 표정.</summary>
     public void PlayLanding()
     {
@@ -309,8 +345,8 @@ public class MijinCharacter : MonoBehaviour
         transform.rotation = Quaternion.identity;
  
         // 던져졌다가 아무렇지 않게 내려앉은 척하는 게 소마왕답다
-        if (eyesSmug != null) SetEyes(eyesSmug);
-        if (mouthSmug != null && !_talking) mouthRenderer.sprite = mouthSmug;
+        // 홀드를 걸어야 착지 직후 말을 걸어도 우쭐한 입이 SetFocused에 안 지워진다
+        SetExpression(eyesSmug, mouthSmug, landRecoverSeconds + smugHoldSeconds);
  
         yield return SquashRoutine(landRecoverSeconds, squashAmount);
         yield return new WaitForSeconds(smugHoldSeconds);
@@ -509,14 +545,17 @@ public class MijinCharacter : MonoBehaviour
     }
  
     /// <summary>말이 끝났을 때 입을 닫는다. 집중 중이면 집중한 입으로 대신 둔다.</summary>
-    public void CloseMouth() =>
+    public void CloseMouth()
+    {
+        if (MouthHeld) return;   // 표정 홀드가 끝나기 전까지는 집중・기본이 입을 못 건드린다
         mouthRenderer.sprite = (_focusMouth && mouthFocus != null) ? mouthFocus : mouthClosed;
+    }
  
     /// <summary>집중한 표정으로 둔다. 말하는 동안은 립싱크가 우선한다.</summary>
     public void SetFocused(bool on)
     {
         _focusMouth = on;
-        CloseMouth();
+        if (!MouthHeld) CloseMouth();
     }
  
     /// <summary>
@@ -532,8 +571,12 @@ public class MijinCharacter : MonoBehaviour
         if (!_eyesCovered) eyesRenderer.sprite = _baseEyes;
     }
  
-    /// <summary>눈과 입을 한 번에 바꾼다. null은 건드리지 않는다 (삐짐·우쭐 같은 짝에 쓴다).</summary>
-    public void SetExpression(Sprite eyes, Sprite mouth)
+    /// <summary>
+    /// 눈과 입을 한 번에 바꾼다. null은 건드리지 않는다 (삐짐·우쭐 같은 짝에 쓴다).
+    /// holdSeconds를 주면 그 시간 동안은 집중・기본 입이 이 표정을 덮지 못한다
+    /// (립싱크는 예외 — 말이 시작되면 곧바로 넘어간다).
+    /// </summary>
+    public void SetExpression(Sprite eyes, Sprite mouth, float holdSeconds = 0f)
     {
         if (eyes != null) SetEyes(eyes);
         if (mouth != null && !_talking)
@@ -541,6 +584,7 @@ public class MijinCharacter : MonoBehaviour
             _focusMouth = false;
             mouthRenderer.sprite = mouth;
         }
+        if (holdSeconds > 0f) _mouthHoldUntil = Time.time + holdSeconds;
     }
  
     /// <summary>기본 표정으로 되돌린다.</summary>
