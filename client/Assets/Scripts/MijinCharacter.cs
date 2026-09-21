@@ -63,7 +63,19 @@ public class MijinCharacter : MonoBehaviour
     public float pokeSquashSeconds = 0.18f;
     [Tooltip("삐진 표정을 유지할 시간. 이 안에 대사가 나오면 립싱크가 이어받는다.")]
     public float pokeExpressionSeconds = 2f;
- 
+
+    [Header("잠자기")]
+    public Sprite bodySleep01;
+    public Sprite bodySleep02;
+    public Sprite eyesSleep;
+    public Sprite mouthSleep;
+    [Tooltip("두 프레임을 바꾸는 간격. 호흡이라 걷기(0.15초)와 달리 아주 느리다.")]
+    public float sleepSwapSeconds = 1.6f;
+    [Tooltip("자는 자세는 앉아 있어 몸통 밑선이 idle보다 100px 높다. 세 파츠를 함께 내린다.")]
+    public float sleepOffsetY = -1f;
+    [Tooltip("깨어날 때 눈을 감은 채로 버티는 시간. 바로 뜨면 스위치처럼 보인다.")]
+    public float wakeBlinkSeconds = 0.25f;
+
     [Header("자세별 높이 보정 (세 파츠를 함께 옮긴다)")]
     [Tooltip("착지 자세는 발이 idle보다 50px 위에 그려져 있어 그만큼 내려야 바닥에 닿는다.")]
     public float landOffsetY = -0.50f;
@@ -125,9 +137,12 @@ public class MijinCharacter : MonoBehaviour
  
     /// <summary>착지 연출이 도는 중인지. 이 동안은 다른 곳에서 몸통을 건드리지 않는다.</summary>
     public bool IsLanding => _pose == PoseKind.Land;
- 
+
+    /// <summary>지금 자고 있는지. 혼잣말 쪽에서 말을 걸지 여부를 판단하는 데 쓴다.</summary>
+    public bool IsSleeping => _pose == PoseKind.Sleep;
+
     // 몸통 자세. 코루틴이 하나만 살아 있도록 여기서 관리한다.
-    private enum PoseKind { Idle, Hang, Fly, Land }
+    private enum PoseKind { Idle, Hang, Fly, Land, Sleep }
     private PoseKind _pose = PoseKind.Idle;
     private Coroutine _poseRoutine;
     private Coroutine _squashRoutine;
@@ -143,7 +158,8 @@ public class MijinCharacter : MonoBehaviour
     private bool _talking;      // 음성이 매 프레임 입을 직접 몰고 있는 동안(립싱크)
     private Sprite _baseEyes;   // 깜빡임이 끝나면 돌아갈 눈
     private float _mouthHoldUntil;   // 이 시각까지는 집중・기본이 입을 못 건드린다 (립싱크는 예외)
-    private bool MouthHeld => Time.time < _mouthHoldUntil;
+    // 찌르기 홀드는 시간제, 잠은 무기한이라 여기서 합친다. 립싱크(SetMouthLevel)는 이 검사를 아예 안 거치므로 최우선은 유지된다.
+    private bool MouthHeld => Time.time < _mouthHoldUntil || _pose == PoseKind.Sleep;
  
     // localScale에 세 가지가 겹쳐 있다. 따로 들고 있다가 한 번에 합쳐 적용한다.
     //   _scale  : 메뉴에서 정하는 크기
@@ -266,7 +282,8 @@ public class MijinCharacter : MonoBehaviour
     public void SetFlying()
     {
         if (_pose == PoseKind.Fly) return;
- 
+        WakeUp();
+
         StopPose();
         StopSquash();
         _pose = PoseKind.Fly;
@@ -288,6 +305,7 @@ public class MijinCharacter : MonoBehaviour
     /// <summary>찔렸을 때. 위아래로 살짝 눌리고 삐진 표정을 잠깐 유지한다.</summary>
     public void PlayPoke()
     {
+        WakeUp();   // 깨우기가 먼저여야 삐진 눈이 자는 몸에 붙지 않는다
         StopSquash();
         _squashRoutine = StartCoroutine(SquashRoutine(pokeSquashSeconds, pokeSquashAmount));
  
@@ -314,7 +332,8 @@ public class MijinCharacter : MonoBehaviour
     public void PlayLanding()
     {
         if (_pose == PoseKind.Land) return;
- 
+        WakeUp();
+
         StopPose();
         StopSquash();
         _pose = PoseKind.Land;
@@ -363,7 +382,51 @@ public class MijinCharacter : MonoBehaviour
             if (!_talking) CloseMouth();
         }
     }
- 
+
+    // ───────────────── 잠자기 ─────────────────
+
+    /// <summary>그 자리에 주저앉아 잔다. 자리 이동은 하지 않는다.</summary>
+    public void EnterSleep()
+    {
+        if (_pose == PoseKind.Sleep) return;
+        if (IsHeld || _pose != PoseKind.Idle) return;   // 들렸거나 날거나 착지 중에 잠들면 자세가 싸운다
+
+        StopPose();
+        StopSquash();
+        _pose = PoseKind.Sleep;
+        _isWalking = false;
+        transform.rotation = Quaternion.identity;
+        ApplyPoseOffset(sleepOffsetY);
+        SetExpression(eyesSleep, mouthSleep);
+        _poseRoutine = StartCoroutine(TwoFrameLoop(bodySleep01, bodySleep02, sleepSwapSeconds));
+    }
+
+    /// <summary>깨운다. 자고 있지 않으면 아무 일도 하지 않는다 — 아무 데서나 조건 없이 불러도 안전하다.</summary>
+    public void WakeUp()
+    {
+        if (_pose != PoseKind.Sleep) return;
+
+        StopPose();
+        _pose = PoseKind.Idle;
+        ApplyPoseOffset(0f);
+        bodyRenderer.sprite = bodyIdle;
+        StartCoroutine(WakeBlinkRoutine());
+    }
+
+    private IEnumerator WakeBlinkRoutine()
+    {
+        // 눈 비비는 한 박자. 바로 뜨면 전원 스위치처럼 보인다
+        SetEyes(eyesClosed);
+        yield return new WaitForSeconds(wakeBlinkSeconds);
+
+        // 그 사이에 들렸거나 자세가 바뀌었으면 그쪽 표정(Hang의 eyesExcited 등)이 이미
+        // 주인이므로 건드리지 않는다. 몸은 WakeUp()에서 이미 idle로 돌려놨으니 여기선 안 건드린다.
+        // MouthHeld는 찌르기·착지처럼 SetExpression(holdSeconds)로 걸어둔 표정이 아직
+        // 유효한지도 같이 알려준다 - 자는 미진이를 찌르면 WakeUp() 다음에 바로 삐진 표정이
+        // 걸리는데, 그걸 0.25초짜리 이 코루틴이 먼저 끝나며 지워버리면 안 된다.
+        if (!IsHeld && _pose == PoseKind.Idle && !MouthHeld) ResetExpression();
+    }
+
     // ───────────────── 눈 깜빡임 ─────────────────
     private IEnumerator BlinkLoop()
     {
@@ -376,8 +439,9 @@ public class MijinCharacter : MonoBehaviour
  
             // 대기하는 동안 눈이 가려졌을 수 있다 - 그러면 이번 깜빡임은 건너뛴다
             if (_eyesCovered) continue;
-            // 이미 감은 눈(신남·우쭐)일 때는 깜빡여도 표가 안 나고 오히려 표정이 끊긴다
-            if (_baseEyes == eyesClosed || _baseEyes == eyesExcited || _baseEyes == eyesSmug)
+            // 이미 감은 눈(신남·우쭐·잠)일 때는 깜빡여도 표가 안 나고 오히려 표정이 끊긴다
+            if (_baseEyes == eyesClosed || _baseEyes == eyesExcited
+                || _baseEyes == eyesSmug || _baseEyes == eyesSleep)
                 continue;
  
             eyesRenderer.sprite = eyesClosed;
@@ -488,6 +552,8 @@ public class MijinCharacter : MonoBehaviour
     /// </summary>
     public void SetHeld(bool held, bool hangPose = true)
     {
+        if (held) WakeUp();   // 자는 채로 들리면 매달림 자세가 이겨야 하므로 먼저 깨운다
+
         IsHeld = held;
         if (held)
         {
@@ -506,8 +572,12 @@ public class MijinCharacter : MonoBehaviour
             {
                 _pose = PoseKind.Idle;
                 bodyRenderer.sprite = bodyIdle;
+                // WakeUp()의 눈 비비기(WakeBlinkRoutine)가 IsHeld를 보고 되돌리기를
+                // 양보하는데, hangPose가 없으면 아무도 이어받지 않아 눈이 감긴 채 남는다.
+                // hangPose가 있을 때는 바로 아래에서 eyesExcited가 넘겨받는다.
+                SetEyes(eyesOpen);
             }
- 
+
             if (hangPose && eyesExcited != null) SetEyes(eyesExcited);
         }
         else

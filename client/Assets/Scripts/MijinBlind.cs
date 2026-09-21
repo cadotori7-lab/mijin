@@ -62,7 +62,10 @@ public class MijinBlind : MonoBehaviour
 
         OnChanged?.Invoke(blind);
 
-        if (react && reactWhenToggled && talk != null)
+        // 자는 동안은 이벤트를 보내지 않는다 - Talk()가 맨 앞에서 WakeUp()을 부르므로,
+        // 여기서 그대로 부르면 가렸다 푸는 것만으로 잠이 깬다. 눈은 SetEyesCovered가
+        // 이미 처리했으니(풀면 _baseEyes로 돌아가 다시 자는 눈이 된다) 말은 걸지 않는다.
+        if (react && reactWhenToggled && talk != null && (mijin == null || !mijin.IsSleeping))
             talk.Talk("event", blind ? onBlindText : onRevealText);
     }
 

@@ -91,6 +91,7 @@ public class MijinMonologue : MonoBehaviour
         if (talk.IsBusy) return false;
         if (blind != null && blind.IsBlind) return false;
         if (mijin != null && mijin.IsHeld) return false;
+        if (mijin != null && mijin.IsSleeping) return false;   // 자는 동안은 말하지 않는다
 
         if (capture.IdleSeconds() > idleSkipSeconds)
         {

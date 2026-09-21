@@ -68,6 +68,7 @@ public class MijinTalk : MonoBehaviour
     public void Talk(string kind, string text, string imageBase64 = null)
     {
         if (IsBusy) return;
+        if (mijin != null) mijin.WakeUp();   // 말을 걸거나 이벤트가 오면 깬다
         StartCoroutine(TalkRoutine(kind, text, imageBase64));
     }
     /// <summary>맨 앞의 감정 태그를 떼어낸다. 태그는 TTS에만 보내고 말풍선에는 안 띄운다.</summary>
