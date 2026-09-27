@@ -16,6 +16,7 @@ public class MijinMenu : MonoBehaviour
     public MijinVoice voice;
     public MijinMonologue monologue;
     public MijinBlind blind;
+    public MijinSleep sleep;
     public BoxCollider2D body;
 
     [Header("UI")]
@@ -26,6 +27,7 @@ public class MijinMenu : MonoBehaviour
     public Slider scaleSlider;
     public Toggle monologueToggle;
     public Toggle walkToggle;
+    public Toggle sleepToggle;
     public Toggle blindToggle;
     public Button quitButton;
 
@@ -99,6 +101,18 @@ public class MijinMenu : MonoBehaviour
             });
         }
 
+        if (sleepToggle != null)
+        {
+            sleepToggle.isOn = _settings.sleepEnabled;
+            sleepToggle.onValueChanged.AddListener(v =>
+            {
+                if (_building) return;
+                _settings.sleepEnabled = v;
+                ApplySleep();
+                _settings.Save();
+            });
+        }
+
         if (blindToggle != null)
         {
             blindToggle.isOn = _settings.screenBlind;
@@ -139,6 +153,7 @@ public class MijinMenu : MonoBehaviour
         ApplyScale();
         ApplyMonologue();
         ApplyWalk();
+        ApplySleep();
 
         if (blind != null) blind.RestoreSilently(_settings.screenBlind);
     }
@@ -161,6 +176,11 @@ public class MijinMenu : MonoBehaviour
     private void ApplyWalk()
     {
         if (mijin != null) mijin.walkEnabled = _settings.walkEnabled;
+    }
+
+    private void ApplySleep()
+    {
+        if (sleep != null) sleep.sleepEnabled = _settings.sleepEnabled;
     }
 
     // ───────────────── 열고 닫기 ─────────────────

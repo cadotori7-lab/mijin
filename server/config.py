@@ -356,3 +356,21 @@ DISTILL_PROMPT = """아래는 최근 {days}일 동안 한 사람의 컴퓨터 �
 결과는 "- "로 시작하는 줄의 목록으로만 답하라. 설명이나 머리말을 붙이지 마라.
 여덟 줄을 넘기지 마라."""
 
+# ================= 13. 감정 태그 =================
+# persona.txt가 대사 맨 앞에 붙이는 [태그]. 실제 로그(mem/*.jsonl, 2026-09 실측
+# 2014건)를 세어 보니 압도적으로 이 넷에 몰려 있었다 - persona.txt [출력 형식]의
+# 허용 목록도 이 넷으로 닫아 뒀다. 한쪽만 고치면 서로 안 맞으니 같이 바꿀 것.
+#   curious 770 / excited 668 / smug 220 / pouting 202(-> upset으로 흡수) 순.
+KNOWN_EMOTION_TAGS = {"curious", "excited", "smug", "upset"}
+
+# 자주 나오는데 전용 스프라이트가 없는 태그를 기존 표정으로 흡수한다. 새로 그릴
+# 필요 없이 표만 만드는 쪽이다 - mijin.py의 _normalize_emotion_tag가 실제로 바꿔 쓴다.
+# (angry 17건, scared 56건처럼 실측 빈도가 있던 것 위주로 넣었고, persona.txt가
+# 목록을 닫아 버렸으니 이 alias는 주로 예전 로그·모델이 지시를 안 따른 경우를 받는다)
+EMOTION_TAG_ALIASES = {
+    "pouting": "upset", "angry": "upset", "scared": "upset",
+    "sad": "upset", "worried": "upset", "annoyed": "upset",
+    "amused": "excited", "surprised": "excited", "touched": "excited",
+    "amazed": "excited", "relieved": "excited",
+}
+

@@ -32,6 +32,7 @@ from config import (
     CLOUD_BASE_URL, CLOUD_API_KEY, TARGET_MODEL,
     GEMMA_TEMPERATURE, GEMMA_TOP_P, CLOUD_TIMEOUT_SEC,
     PERSONA_FILE, DUMP_PROMPT, LAST_PROMPT_FILE,
+    KNOWN_EMOTION_TAGS, EMOTION_TAG_ALIASES,
 )
 from vision import extract_and_analyze_image
 from context import clean_messages
@@ -46,7 +47,34 @@ MONOLOGUE_PROMPT = "(파트너님은 말이 없다. 지금 보고 있는 화면�
 # Unity(MijinTalk.cs)로 그대로 넘어가야 한다. 말풍선용/TTS용 분리는 Unity 쪽에서 한다.
 SPEECH_STRIP_PATTERN = re.compile(r"[*_`#>]|ㅋ{2,}|ㅎ{2,}|[~]{1,}")
 
+# 대사 맨 앞 감정 태그. 캡처 그룹 하나(태그 내용)를 둬서 치환에 쓴다.
+EMOTION_TAG_PATTERN = re.compile(r"^\s*\[([^\]]{1,20})\]")
+
 _persona_cache = {"key": None, "text": ""}
+
+
+def _normalize_emotion_tag(text: str) -> str:
+    """모델이 붙인 [태그]를 살펴본다. persona.txt가 허용 목록을 닫아 놨지만
+    (KNOWN_EMOTION_TAGS) 모델이 지시를 안 따르는 경우가 있어 방어선을 하나 더 둔다.
+
+    EMOTION_TAG_ALIASES에 있으면 기존 표정으로 조용히 바꿔 쓰고, 어느 쪽에도
+    없으면 콘솔에 한 줄만 남긴다 - 태그를 지우지는 않는다. TTS는 원래도 모르는
+    태그를 그냥 무시하고 넘어가므로 지울 이유가 없다.
+    """
+    m = EMOTION_TAG_PATTERN.match(text)
+    if not m:
+        return text
+
+    tag = m.group(1).strip().lower()
+    if tag in KNOWN_EMOTION_TAGS:
+        return text
+
+    canonical = EMOTION_TAG_ALIASES.get(tag)
+    if canonical:
+        return text[:m.start(1)] + canonical + text[m.end(1):]
+
+    print(f"[TAG] 모르는 감정 태그: [{tag}]")
+    return text
 
 
 class MijinRequest(BaseModel):
@@ -213,6 +241,7 @@ async def mijin_chat(req: MijinRequest):
     if raw is None:
         return {"status": "skipped", "text": ""}
 
+    raw = _normalize_emotion_tag(raw)
     line = _clean_for_speech(raw)
     if not line:
         return {"status": "skipped", "text": ""}

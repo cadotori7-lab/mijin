@@ -22,6 +22,10 @@ public class MijinSleep : MonoBehaviour
     public MijinScreenCapture capture;
     public MijinTalk talk;
 
+    [Header("켜기/끄기")]
+    [Tooltip("끄면 자리를 비워도 잠들지 않는다. 이미 자고 있으면 그대로 둔다 - 다른 켜기/끄기(monologueEnabled 등)와 같은 결이다.")]
+    public bool sleepEnabled = true;
+
     [Header("잠들기")]
     [Tooltip("이만큼 입력이 없으면 잠든다. MijinMonologue.idleSkipSeconds(기본 180)와 맞춰 두면 " +
              "말을 멈추는 시점과 잠드는 시점이 같아진다. 조금 크게 두면 조용해진 뒤 한 박자 있다가 잠드는 느낌이 난다.")]
@@ -54,7 +58,7 @@ public class MijinSleep : MonoBehaviour
             if (!mijin.IsSleeping)
             {
                 // 응답을 기다리는 중에 잠들면 대사가 자는 입에서 나온다
-                if (idle > sleepAfterSeconds && (talk == null || !talk.IsBusy))
+                if (sleepEnabled && idle > sleepAfterSeconds && (talk == null || !talk.IsBusy))
                 {
                     mijin.EnterSleep();
                     _awakeCredit = 0f;

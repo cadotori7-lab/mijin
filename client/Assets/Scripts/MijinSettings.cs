@@ -15,6 +15,7 @@ public class MijinSettings
     public float scale = 0.42f;
     public bool monologueEnabled = true;
     public bool walkEnabled = true;
+    public bool sleepEnabled = true;
 
     // 아직 메뉴에 안 붙은 항목들. 미리 자리를 잡아 두면 기능을 더할 때
     // 저장 파일 형식이 바뀌지 않는다.
