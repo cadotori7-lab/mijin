@@ -89,6 +89,20 @@ def _clean_for_speech(text: str) -> str:
     return text.strip('"\u201c\u201d\'')
 
 
+def _log_cache_hit_rate(data: Dict[str, Any]) -> None:
+    """캐시가 실제로 걸리는지는 usage.prompt_tokens_details.cached_tokens로 확인한다
+    (CLAUDE.md 참고). 프롬프트 앞부분(system/history) 순서를 건드렸으면 이 값이
+    꺾이는지부터 본다 - 값이 없으면(공급자가 안 주는 경우) 조용히 넘어간다.
+    """
+    usage = data.get("usage") or {}
+    prompt_tokens = usage.get("prompt_tokens")
+    if not prompt_tokens:
+        return
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+    rate = cached / prompt_tokens * 100
+    print(f"[INFO] 캐시 적중률: {cached}/{prompt_tokens} ({rate:.1f}%)")
+
+
 async def _call_cloud(messages: List[Dict[str, Any]]) -> Optional[str]:
     payload = {
         "model": TARGET_MODEL,
@@ -121,8 +135,16 @@ async def _call_cloud(messages: List[Dict[str, Any]]) -> Optional[str]:
         return None
 
     try:
-        return resp.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, ValueError) as e:
+        data = resp.json()
+    except ValueError as e:
+        print(f"[ERROR] 클라우드 응답 파싱 실패: {e}")
+        return None
+
+    _log_cache_hit_rate(data)
+
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as e:
         print(f"[ERROR] 클라우드 응답 파싱 실패: {e}")
         return None
 

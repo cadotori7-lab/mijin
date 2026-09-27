@@ -28,6 +28,8 @@ public class MijinPat : MonoBehaviour
     public float strokeWindowSeconds = 1.2f;
     [Tooltip("마지막 획 뒤 이만큼 지나면 끝난 것으로 본다.")]
     public float patTimeoutSeconds = 0.5f;
+    [Tooltip("한 프레임에 이보다 크게 튀면 좌우 반전이나 커서 순간이동이다. 획으로 세지 않는다.")]
+    public float maxStrokeJump = 1.5f;
 
     [Header("서버 이벤트")]
     [Tooltip("이 시간 안에는 다시 이벤트를 보내지 않는다. 쓰다듬기는 길게 이어지는 행동이라 " +
@@ -83,7 +85,9 @@ public class MijinPat : MonoBehaviour
             _strokeDir = 0;
         }
 
-        if (_isPatting && Time.time - _lastStrokeTime > patTimeoutSeconds)
+        // _isPatting만 보면 획이 1개뿐일 때(strokesToStart 미만) 절대 안 걸려서
+        // SetExpression의 표정이 영영 안 풀린다. _strokes > 0도 같이 본다.
+        if ((_isPatting || _strokes > 0) && Time.time - _lastStrokeTime > patTimeoutSeconds)
             EndPatting();
     }
 
@@ -95,6 +99,15 @@ public class MijinPat : MonoBehaviour
     private void TrackStroke(float dx)
     {
         if (Mathf.Abs(dx) < 1e-5f) return;
+
+        // 좌우 반전(_flip)으로 local.x 부호가 뒤집히거나 _lastLocalX 초기값(0)에서
+        // 튀는 경우 - 실제 쓰다듬는 움직임보다 훨씬 크므로 획으로 세지 않는다.
+        if (Mathf.Abs(dx) > maxStrokeJump)
+        {
+            _strokeDir = 0;
+            _strokeAccum = 0f;
+            return;
+        }
 
         int dir = dx > 0f ? 1 : -1;
         if (_strokeDir == 0)
@@ -148,6 +161,7 @@ public class MijinPat : MonoBehaviour
 
     private void EndPatting()
     {
+        bool wasPatting = _isPatting;
         _isPatting = false;
         _strokes = 0;
         if (!mijin.CanAct())
@@ -157,8 +171,11 @@ public class MijinPat : MonoBehaviour
             return;
         }
 
+        // 표정은 획이 1개뿐이라 Patting에 못 들어갔어도 풀어줘야 한다 -
+        // RegisterStroke가 CanAct()일 때 매 획마다 걸어두기 때문이다.
         mijin.ResetExpression();
 
+        if (!wasPatting) return;   // 획 하나로는 서버 이벤트를 보내지 않는다
         if (Time.time - _lastEventTime < eventCooldownSeconds) return;
         _lastEventTime = Time.time;
         if (talk != null) talk.Talk("event", onPatText);
