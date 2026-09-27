@@ -84,6 +84,41 @@ public class MijinTalk : MonoBehaviour
         return m.Success ? text.Substring(m.Length).Trim() : text;
     }
 
+    // StripEmotionTag와 같은 태그를 보되, 내용을 캡처 그룹으로 꺼낸다 (표정 매핑용).
+    // 서버(mijin.py의 EMOTION_TAG_PATTERN/KNOWN_EMOTION_TAGS)가 curious/excited/smug/upset
+    // 네 개로 이미 닫아 뒀으므로 여기서도 그 넷만 안다.
+    private static readonly System.Text.RegularExpressions.Regex EmotionTagPattern =
+        new System.Text.RegularExpressions.Regex(@"^\s*\[([^\]]{1,20})\]");
+
+    /// <summary>
+    /// 대사 맨 앞 감정 태그로 눈만 바꾼다. 입은 립싱크(SetMouthLevel)가 말하는 동안
+    /// 계속 몰고 있으니 건드리지 않는다 - SetExpression(eyes, null, hold)로 두면
+    /// mouth 인자가 null이라도 알아서 건드리지 않는다.
+    ///
+    /// 정확한 재생 길이를 여기서는 몰라서 글자 수로 대략 추정한다(한국어 발화
+    /// 속도 대략 5자/초). 조금 넘치더라도 말이 끝난 뒤 잠깐 표정이 남는 정도라
+    /// CloseMouth처럼 눈에 띄게 어긋나진 않는다.
+    /// </summary>
+    private void ApplyEmotionExpression(string rawResult)
+    {
+        if (mijin == null) return;
+        var m = EmotionTagPattern.Match(rawResult);
+        if (!m.Success) return;
+
+        string tag = m.Groups[1].Value.Trim().ToLowerInvariant();
+        Sprite eyes;
+        switch (tag)
+        {
+            case "excited": eyes = mijin.eyesExcited; break;
+            case "smug":    eyes = mijin.eyesSmug;    break;
+            case "upset":   eyes = mijin.eyesUpset;   break;
+            default:        eyes = mijin.eyesOpen;    break;   // curious 등 - 기본 눈
+        }
+
+        float holdSeconds = Mathf.Clamp(rawResult.Length / 5f + 1.5f, 2f, 15f);
+        mijin.SetExpression(eyes, null, holdSeconds);
+    }
+
     private IEnumerator TalkRoutine(string kind, string text, string imageBase64)
     {
         IsBusy = true;
@@ -99,6 +134,7 @@ public class MijinTalk : MonoBehaviour
         {
             bubble.Show(StripEmotionTag(result));   // 말풍선에는 태그 없이
             LastSpoke = true;
+            ApplyEmotionExpression(result);         // 태그로 눈만 바꾼다 (말하는 동안 유지)
             // 음성에는 태그째로
             if (voice != null) voice.Speak(result);
         }
