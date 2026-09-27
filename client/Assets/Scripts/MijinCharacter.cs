@@ -171,7 +171,10 @@ public class MijinCharacter : MonoBehaviour
     private Sprite _baseEyes;   // 깜빡임이 끝나면 돌아갈 눈
     private float _mouthHoldUntil;   // 이 시각까지는 집중・기본이 입을 못 건드린다 (립싱크는 예외)
     // 찌르기 홀드는 시간제, 잠은 무기한이라 여기서 합친다. 립싱크(SetMouthLevel)는 이 검사를 아예 안 거치므로 최우선은 유지된다.
-    private bool MouthHeld => Time.time < _mouthHoldUntil || _pose == PoseKind.Sleep;
+    // public인 이유: 찌르기·감정 태그처럼 서로 다른 곳에서 각자 타이머로 되돌리기를 예약하면,
+    // 먼저 끝나는 짧은 타이머가 나중에 걸린 더 긴 홀드를 지워버린다. 되돌리기 코루틴들은
+    // 자기 타이머가 끝났을 때 "그 사이 누가 홀드를 더 늘려놓지 않았는지"를 이걸로 확인해야 한다.
+    public bool MouthHeld => Time.time < _mouthHoldUntil || _pose == PoseKind.Sleep;
  
     // localScale에 세 가지가 겹쳐 있다. 따로 들고 있다가 한 번에 합쳐 적용한다.
     //   _scale  : 메뉴에서 정하는 크기
@@ -346,8 +349,10 @@ public class MijinCharacter : MonoBehaviour
     {
         yield return new WaitForSeconds(seconds);
         _pokeExpressionRoutine = null;
-        // 그 사이 들렸거나 자세가 바뀌었으면 그쪽 연출이 이긴다
-        if (_pose == PoseKind.Idle && !IsHeld) ResetExpression();
+        // 그 사이 들렸거나 자세가 바뀌었으면 그쪽 연출이 이긴다. !MouthHeld는 그 사이
+        // 대사(감정 태그)가 이 찌르기보다 더 긴 홀드를 새로 걸어놓은 경우를 막는다 -
+        // 안 그러면 짧은 찌르기 타이머가 먼저 끝나며 아직 유효한 대사 표정을 지워버린다.
+        if (_pose == PoseKind.Idle && !IsHeld && !MouthHeld) ResetExpression();
     }
  
     /// <summary>바닥에 내려앉는 순간. 웅크린 자세 + 찌그러짐 + 우쭐한 표정.</summary>

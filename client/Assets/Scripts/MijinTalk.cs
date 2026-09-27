@@ -46,6 +46,7 @@ public class MijinTalk : MonoBehaviour
     /// <summary>미진이를 클릭했을 때. MijinDrag의 onClick에 연결한다.</summary>
     private int _pokeCount;
     private float _lastPokeTime;
+    private Coroutine _emotionRevertRoutine;
 
     public void OnPoked()
     {
@@ -117,6 +118,22 @@ public class MijinTalk : MonoBehaviour
 
         float holdSeconds = Mathf.Clamp(rawResult.Length / 5f + 1.5f, 2f, 15f);
         mijin.SetExpression(eyes, null, holdSeconds);
+
+        // SetExpression의 holdSeconds는 입(_mouthHoldUntil)만 막을 뿐, 눈은 아무도
+        // 되돌려 주지 않는다 - 여기서 직접 타이머를 걸어야 holdSeconds가 지나면
+        // 눈이 기본으로 돌아온다 (찌르기의 RevertPokeExpression과 같은 이유).
+        if (_emotionRevertRoutine != null) StopCoroutine(_emotionRevertRoutine);
+        _emotionRevertRoutine = StartCoroutine(RevertEmotionExpression(holdSeconds));
+    }
+
+    private IEnumerator RevertEmotionExpression(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        _emotionRevertRoutine = null;
+        // 그 사이 들렸거나 자거나 다른 연출(찌르기·착지)이 자세를 가져갔으면 그쪽이 이긴다.
+        // !MouthHeld는 그 사이 찌르기가 이 감정 표정보다 더 긴 홀드를 새로 걸어놓은
+        // 경우를 막는다 - 안 그러면 이 타이머가 먼저 끝나며 아직 유효한 찌르기 표정을 지운다.
+        if (mijin != null && mijin.CanAct() && !mijin.MouthHeld) mijin.ResetExpression();
     }
 
     private IEnumerator TalkRoutine(string kind, string text, string imageBase64)
