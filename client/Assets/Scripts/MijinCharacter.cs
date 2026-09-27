@@ -102,8 +102,12 @@ public class MijinCharacter : MonoBehaviour
     public Sprite eyesExcited;
     [Tooltip("우쭐할 때 눈. 착지 직후에 쓴다.")]
     public Sprite eyesSmug;
-    [Tooltip("삐졌을 때 눈. 너무 많이 찔렸을 때 쓴다.")]
+    [Tooltip("궁금할 때 눈. 대사 태그 [curious]에 쓴다.")]
+    public Sprite eyesCurious;
+    [Tooltip("화났을 때 눈(째려보는 눈). 대사 태그 [upset]에 쓴다.")]
     public Sprite eyesUpset;
+    [Tooltip("찔렸을 때 눈(질끈 감은 눈). 찌르기(PlayPoke) 전용 - 대사 태그와는 무관하다.")]
+    public Sprite eyesPoked;
  
     [Header("입 스프라이트")]
     public Sprite mouthClosed;
@@ -338,7 +342,7 @@ public class MijinCharacter : MonoBehaviour
         // 자세(_pose)와 걷기 코루틴은 그대로 둔다 — 찌르기는 제자리에서 일어나는 반응이다.
         if (CanAct())
         {
-            SetExpression(eyesUpset, mouthUpset, pokeExpressionSeconds);
+            SetExpression(eyesPoked, mouthUpset, pokeExpressionSeconds);
  
             if (_pokeExpressionRoutine != null) StopCoroutine(_pokeExpressionRoutine);
             _pokeExpressionRoutine = StartCoroutine(RevertPokeExpression(pokeExpressionSeconds));

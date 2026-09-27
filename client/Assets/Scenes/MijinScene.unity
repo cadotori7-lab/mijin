@@ -724,7 +724,9 @@ MonoBehaviour:
   eyesBlind: {fileID: 21300000, guid: 4f4a14e0839c229448feb4bde76f2db6, type: 3}
   eyesExcited: {fileID: 21300000, guid: fff8925fc38d85a4a9aea74d887bf9d3, type: 3}
   eyesSmug: {fileID: 21300000, guid: eeda5e67e7743e741ac7e3385d8bd961, type: 3}
+  eyesCurious: {fileID: 21300000, guid: ff4074feb3d2a1349a4dbf8b74f2aa94, type: 3}
   eyesUpset: {fileID: 21300000, guid: 90190e505daad6c49bfdc68b9a06054e, type: 3}
+  eyesPoked: {fileID: 21300000, guid: ecd89511a0a756e45b66cadb67da573b, type: 3}
   mouthClosed: {fileID: 21300000, guid: bfaf626fc18808e4cbdda8964e147db8, type: 3}
   mouthHalf: {fileID: 21300000, guid: 93f26da9192b18b4bace36c9e29b3523, type: 3}
   mouthOpen: {fileID: 21300000, guid: 066de96e332b395498e1dc41a3563dad, type: 3}

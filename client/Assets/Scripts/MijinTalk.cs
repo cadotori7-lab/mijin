@@ -110,10 +110,11 @@ public class MijinTalk : MonoBehaviour
         Sprite eyes;
         switch (tag)
         {
+            case "curious": eyes = mijin.eyesCurious; break;
             case "excited": eyes = mijin.eyesExcited; break;
             case "smug":    eyes = mijin.eyesSmug;    break;
-            case "upset":   eyes = mijin.eyesUpset;   break;
-            default:        eyes = mijin.eyesOpen;    break;   // curious 등 - 기본 눈
+            case "upset":   eyes = mijin.eyesUpset;   break;   // 째려보는 눈 - 찌르기 전용 eyesPoked와는 다른 스프라이트
+            default:        eyes = mijin.eyesOpen;    break;   // 알려지지 않은 태그 대비 - 기본 눈
         }
 
         float holdSeconds = Mathf.Clamp(rawResult.Length / 5f + 1.5f, 2f, 15f);
