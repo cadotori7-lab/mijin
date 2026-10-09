@@ -201,14 +201,15 @@ def _redact_secrets(text: str) -> Tuple[str, int]:
     return text, n
 
 
-def _run_ocr(raw_b64: str, window_title: str = "") -> str:
+def _run_ocr(raw_b64: str, window_title: str = "") -> Tuple[str, int]:
+    """OCR 결과와 비밀정보 제거 건수를 함께 돌려준다 (계측용 - stats.py)."""
     if not _HAS_OCR:
-        return ""
+        return "", 0
     try:
         image_bytes = _crop_content_area(raw_b64, window_title)
         result = _ocr_engine(image_bytes)
         if not result.txts:
-            return ""
+            return "", 0
         # 신뢰도 낮은 줄(작은 툴바 아이콘 등 오인식)은 걸러낸다.
         # 추가로 너무 짧은 줄("*", "-", "허" 등)은 아이콘 오인식이라 버린다.
         lines = [
@@ -219,10 +220,10 @@ def _run_ocr(raw_b64: str, window_title: str = "") -> str:
         text, redacted = _redact_secrets(text)
         if redacted:
             print(f"[INFO] OCR에서 비밀정보 의심 {redacted}건 제거")
-        return text
+        return text, redacted
     except Exception as e:
         print(f"[WARN] OCR 실패: {e}")
-        return ""
+        return "", 0
 
 
 def _active_window_title() -> str:
@@ -333,7 +334,8 @@ async def _call_vision(
 
 
 async def extract_and_analyze_image(
-    messages: List[Dict[str, Any]], window_title: Optional[str] = None
+    messages: List[Dict[str, Any]], window_title: Optional[str] = None,
+    info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, Optional[Dict[str, Any]]]:
     """가장 최근 이미지를 찾아 로컬 Qwen3-VL로 분석한다.
 
@@ -341,9 +343,15 @@ async def extract_and_analyze_image(
       - ("none",    None) : 이미지가 애초에 없음 (= 말 걸기 요청)
       - ("skipped", None) : 이미지는 있지만 화면이 안 바뀜 -> 클라우드도 호출하지 말 것
       - ("ok",      dict) : 분석 완료
+
+    info: 주어지면(stats.py용 dict) 각 반환 지점에서 path 등을 채운다. 반환값
+    모양은 그대로다 - info는 호출부(mijin.py)가 미리 기본값을 채워 넘기는
+    선택 인자일 뿐이다.
     """
     image_data = _find_last_image(messages)
     if not image_data:
+        if info is not None:
+            info["path"] = "none"
         return "none", None
     # 캡처 시점에 본체가 읽어 보낸 제목을 우선한다. 프록시가 지금 읽으면
     # 캡처 이후 창이 바뀐 경우 차단 대상이 엉뚱한 이름표를 달고 통과한다.
@@ -359,6 +367,8 @@ async def extract_and_analyze_image(
     new_hash = await asyncio.to_thread(_compute_phash, raw_b64)
     if not _screen_changed(new_hash):
         print("[INFO] 화면 변화 없음 -> 비전 분석 + 클라우드 호출 스킵")
+        if info is not None:
+            info["path"] = "phash_skip"
         return "skipped", None
 
     print(f"[INFO] 화면 캡처 감지됨 -> 로컬 {VISION_MODEL} 분석 시작...")
@@ -372,6 +382,8 @@ async def extract_and_analyze_image(
         # 차단 창은 재시도해도 결론이 항상 같으므로(재분석할 내용이 없음) 커밋해서
         # 다음에 같은 화면이 오면 pHash 단계에서 바로 스킵되게 한다.
         _commit_phash(new_hash)
+        if info is not None:
+            info["path"] = "blocked"
         if BLOCKED_SCREEN_MODE == "masked":
             print(f"[INFO] 차단 창 감지 ({window_title}) -> 껍데기 기록만 전송")
             return "ok", {
@@ -386,7 +398,7 @@ async def extract_and_analyze_image(
 
     # OCR과 다운스케일은 동기 CPU 작업이라 그대로 두면 이벤트 루프를 막는다.
     # (요청이 겹치면 줄줄이 밀림) -> 스레드로 넘긴다.
-    ocr_text, vision_b64 = await asyncio.gather(
+    (ocr_text, redacted), vision_b64 = await asyncio.gather(
         asyncio.to_thread(_run_ocr, raw_b64, window_title),
         asyncio.to_thread(_downscale_for_vision, raw_b64),
     )
@@ -400,6 +412,8 @@ async def extract_and_analyze_image(
     vision_needed = _needs_vision(window_title, ocr_text)
 
     content = ""
+    vision_retry = False
+    ms_vision = 0
     if not vision_needed:
         content = f"{window_title} 창에서 텍스트 작업 중"
         print(f"[INFO] 텍스트 전용 화면 (OCR {len(ocr_text)}자) -> 비전 모델 생략")
@@ -411,6 +425,7 @@ async def extract_and_analyze_image(
             prompt_text = VISION_PROMPT
             num_predict = VISION_NUM_PREDICT_FULL
 
+        t_vision = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=VISION_TIMEOUT_SEC) as client:
                 content, truncated, thinking_len = await _call_vision(
@@ -427,6 +442,7 @@ async def extract_and_analyze_image(
                 # 프롬프트를 극단적으로 짧게 줘서 추론 자체를 억제하는 쪽으로 재시도한다.
                 if truncated:
                     print(f"[WARN] thinking({thinking_len}자) 폭주로 본문 잘림 -> 짧은 프롬프트로 재시도")
+                    vision_retry = True
                     content, truncated2, _ = await _call_vision(
                         client, VISION_RETRY_PROMPT, vision_b64, VISION_NUM_PREDICT_RETRY
                     )
@@ -437,6 +453,7 @@ async def extract_and_analyze_image(
         except Exception as e:
             print(f"[ERROR] 비전 모델 호출 실패: {e}")
             content = ""  # OCR만으로 계속 진행
+        ms_vision = int((time.perf_counter() - t_vision) * 1000)
 
     # ---- 클라우드로 나갈 텍스트 예산 적용 ----
     # 창 종류에 따라 전문(4000자) / 요약(200자)을 나눈다. 여기가 요금의 대부분을 결정한다.
@@ -482,4 +499,14 @@ async def extract_and_analyze_image(
 
     _commit_phash(new_hash)
     _log_observation(window_title, scene, ocr_brief)
+
+    if info is not None:
+        info["path"] = "vision" if vision_needed else "ocr_only"
+        info["deep"] = deep
+        info["ocr_chars"] = len(ocr_text)
+        info["sent_chars"] = len(ocr_sized)
+        info["redacted"] = redacted
+        info["vision_retry"] = vision_retry
+        info["ms_vision"] = ms_vision
+
     return "ok", record

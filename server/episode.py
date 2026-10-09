@@ -12,6 +12,7 @@
 
 import json
 import re
+import time
 from datetime import datetime, timedelta, date as _date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -21,6 +22,7 @@ from config import (
     EPISODE_THINKING, OBSERVATION_LOG,
 )
 import memory
+import stats
 
 # 오늘 이미 확인했으면 다시 확인하지 않는다 (매 요청 파일을 뒤지지 않게).
 _checked_on: Optional[str] = None
@@ -83,7 +85,10 @@ async def _summarize(date: str, material: str) -> Optional[Dict[str, Any]]:
     비용이 거의 안 들고, 평소 대사를 짓는 모델과 같아 회고 문체도 일관된다.
 
     mijin이 이미 이 모듈을 최상단에서 임포트하고 있어 여기서 mijin을 최상단에서
-    되받으면 순환 임포트가 난다 - 함수 안에서 늦게 임포트해 피한다."""
+    되받으면 순환 임포트가 난다 - 함수 안에서 늦게 임포트해 피한다.
+
+    stats.jsonl에 한 줄 남긴다 (kind="episode", path="none") - 요금이 나가는
+    호출이라 측정에서 빠지면 안 된다 (하루 한 번뿐이라 거의 공짜지만)."""
     from mijin import _call_cloud
 
     prompt = EPISODE_PROMPT.format(date=date) + "\n\n[오늘의 기록]\n" + material
@@ -93,35 +98,53 @@ async def _summarize(date: str, material: str) -> Optional[Dict[str, Any]]:
         messages.append({"role": "system", "content": "<|think|>"})
     messages.append({"role": "user", "content": prompt})
 
-    raw = await _call_cloud(messages)
-    if not raw:
-        print("[EPISODE] 요약 실패: 클라우드 응답 없음")
-        return None
-    raw = raw.strip()
-
-    # 모델이 ```json 울타리를 붙이는 경우가 잦다
-    raw = re.sub(r"^```(?:json)?|```$", "", raw, flags=re.MULTILINE).strip()
-    m = re.search(r"\{.*\}", raw, re.DOTALL)
-    if not m:
-        print(f"[EPISODE] JSON을 못 찾음: {raw[:120]}")
-        return None
-
+    t0 = time.perf_counter()
+    rec: Dict[str, Any] = {
+        "t": int(time.time() * 1000), "kind": "episode",
+        "outcome": "exception", "path": "none",
+        "deep": False, "ocr_chars": 0, "sent_chars": 0, "redacted": 0,
+        "vision_retry": False, "ms_total": None, "ms_vision": 0, "ms_cloud": None,
+        "prompt_tokens": None, "cached_tokens": None, "output_tokens": None,
+        "error": None,
+    }
     try:
-        data = json.loads(m.group())
-    except json.JSONDecodeError as e:
-        print(f"[EPISODE] JSON 파싱 실패: {e}")
-        return None
+        raw = await _call_cloud(messages, usage_out=rec)
+        if not raw:
+            print("[EPISODE] 요약 실패: 클라우드 응답 없음")
+            rec["outcome"] = "cloud_error"
+            return None
+        raw = raw.strip()
 
-    summary = str(data.get("summary", "")).strip()
-    if not summary:
-        return None
+        # 모델이 ```json 울타리를 붙이는 경우가 잦다
+        raw = re.sub(r"^```(?:json)?|```$", "", raw, flags=re.MULTILINE).strip()
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not m:
+            print(f"[EPISODE] JSON을 못 찾음: {raw[:120]}")
+            rec["outcome"] = "empty"
+            return None
 
-    kws = data.get("keywords") or []
-    if isinstance(kws, str):
-        kws = [k.strip() for k in kws.split(",")]
-    kws = [str(k).strip() for k in kws if str(k).strip()][:6]
+        try:
+            data = json.loads(m.group())
+        except json.JSONDecodeError as e:
+            print(f"[EPISODE] JSON 파싱 실패: {e}")
+            rec["outcome"] = "empty"
+            return None
 
-    return {"summary": summary, "keywords": kws}
+        summary = str(data.get("summary", "")).strip()
+        if not summary:
+            rec["outcome"] = "empty"
+            return None
+
+        kws = data.get("keywords") or []
+        if isinstance(kws, str):
+            kws = [k.strip() for k in kws.split(",")]
+        kws = [str(k).strip() for k in kws if str(k).strip()][:6]
+
+        rec["outcome"] = "ok"
+        return {"summary": summary, "keywords": kws}
+    finally:
+        rec["ms_total"] = int((time.perf_counter() - t0) * 1000)
+        stats.record(rec)
 
 
 

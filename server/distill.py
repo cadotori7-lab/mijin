@@ -16,9 +16,10 @@
 """
 
 import re
+import time
 from datetime import datetime, timedelta, date as _date
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from config import (
     DISTILL_ENABLED, DISTILL_DAYS, DISTILL_PROMPT, DISTILL_MAX_CHARS,
@@ -26,6 +27,7 @@ from config import (
     DISTILL_THINKING, OBSERVATION_LOG, OBSERVE_CONTENT_BLOCKLIST,
 )
 import memory
+import stats
 
 _ran_on: Optional[str] = None
 
@@ -135,34 +137,53 @@ async def build(force: bool = False) -> Optional[str]:
     ) + "\n\n[최근 기록]\n" + material
 
     # 회고와 같은 경로를 쓴다. 하루 한 번이라 비용이 거의 들지 않는다.
+    # stats.jsonl에 한 줄 남긴다 (kind="distill", path="none") - 요금이 나가는
+    # 호출이라 측정에서 빠지면 안 된다.
     from mijin import _call_cloud
     messages = []
     if DISTILL_THINKING:
         messages.append({"role": "system", "content": "<|think|>"})
     messages.append({"role": "user", "content": prompt})
 
-    raw = await _call_cloud(messages)
-    if not raw:
-        return None
-
-    # episode.py는 JSON만 정규식으로 뽑아내 thinking 블록이 섞여도 안전하지만,
-    # 여기는 원문을 그대로 줄 단위로 쓰므로 새어나온 thinking 블록을 먼저 떼어낸다.
-    raw = re.sub(r"<think(?:ing)?>.*?</think(?:ing)?>", "", raw, flags=re.IGNORECASE | re.DOTALL)
-    # 모델이 머리말을 붙이는 경우가 있어 목록 줄만 남긴다
-    raw = re.sub(r"^```.*?$", "", raw, flags=re.MULTILINE)
-    result = _sanitize(raw)
-    if not result:
-        print("[DISTILL] 남은 내용이 없어 파일을 갱신하지 않음")
-        return None
-
+    t0 = time.perf_counter()
+    rec: Dict[str, Any] = {
+        "t": int(time.time() * 1000), "kind": "distill",
+        "outcome": "exception", "path": "none",
+        "deep": False, "ocr_chars": 0, "sent_chars": 0, "redacted": 0,
+        "vision_retry": False, "ms_total": None, "ms_vision": 0, "ms_cloud": None,
+        "prompt_tokens": None, "cached_tokens": None, "output_tokens": None,
+        "error": None,
+    }
     try:
-        Path(DISTILLED_FILE).write_text(result, encoding="utf-8")
-        print(f"[DISTILL] 프로필 갱신: {len(result)}자 / {result.count(chr(10)) + 1}줄")
-    except OSError as e:
-        print(f"[DISTILL] 파일 쓰기 실패: {e}")
-        return None
+        raw = await _call_cloud(messages, usage_out=rec)
+        if not raw:
+            rec["outcome"] = "cloud_error"
+            return None
 
-    return result
+        # episode.py는 JSON만 정규식으로 뽑아내 thinking 블록이 섞여도 안전하지만,
+        # 여기는 원문을 그대로 줄 단위로 쓰므로 새어나온 thinking 블록을 먼저 떼어낸다.
+        raw = re.sub(r"<think(?:ing)?>.*?</think(?:ing)?>", "", raw, flags=re.IGNORECASE | re.DOTALL)
+        # 모델이 머리말을 붙이는 경우가 있어 목록 줄만 남긴다
+        raw = re.sub(r"^```.*?$", "", raw, flags=re.MULTILINE)
+        result = _sanitize(raw)
+        if not result:
+            print("[DISTILL] 남은 내용이 없어 파일을 갱신하지 않음")
+            rec["outcome"] = "empty"
+            return None
+
+        try:
+            Path(DISTILLED_FILE).write_text(result, encoding="utf-8")
+            print(f"[DISTILL] 프로필 갱신: {len(result)}자 / {result.count(chr(10)) + 1}줄")
+        except OSError as e:
+            print(f"[DISTILL] 파일 쓰기 실패: {e}")
+            rec["outcome"] = "exception"
+            return None
+
+        rec["outcome"] = "ok"
+        return result
+    finally:
+        rec["ms_total"] = int((time.perf_counter() - t0) * 1000)
+        stats.record(rec)
 
 
 async def ensure() -> None:

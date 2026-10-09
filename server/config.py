@@ -374,3 +374,7 @@ EMOTION_TAG_ALIASES = {
     "amazed": "excited", "relieved": "excited",
 }
 
+# ================= 13-1. 계측 (stats.py) =================
+# mem/ 아래가 아니다 - 기억이 아니라 계측이고, /mijin/reset이나 회고가 건드리면 안 된다.
+STATS_FILE = BASE_DIR / "stats.jsonl"
+

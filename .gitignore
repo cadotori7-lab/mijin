@@ -10,6 +10,9 @@ profile.txt
 distilled_profile.txt
 last_prompt.txt
 
+# 계측 (기억이 아니라 숫자 기록. mem/ 아래가 아니라서 위 규칙에 안 걸림)
+stats.jsonl
+
 # 파이썬
 .venv/
 __pycache__/
