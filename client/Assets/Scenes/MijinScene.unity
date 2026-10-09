@@ -710,7 +710,7 @@ MonoBehaviour:
   eyesSleep: {fileID: 21300000, guid: 01a1e1e81eedd694489d561fa36143de, type: 3}
   mouthSleep: {fileID: 21300000, guid: 9614e5cb57bd0654c83b7efd4f2792ee, type: 3}
   sleepSwapSeconds: 1.6
-  sleepOffsetY: 1
+  sleepOffsetY: -2
   wakeBlinkSeconds: 0.25
   headCenter: {x: -0.81, y: 4.34}
   headSize: {x: 2.88, y: 2.98}
