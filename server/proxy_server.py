@@ -9,6 +9,7 @@ import uvicorn
 
 from viewer import router as viewer_router
 from mijin import router as mijin_router
+from stats import router as stats_router
 from config import (
     OCR_BUDGET_DEEP, OCR_BUDGET_NORMAL,
     OCR_CROP_ENABLED, CROP_PROFILES,
@@ -21,6 +22,7 @@ from context import _load_profile
 app = FastAPI()
 app.include_router(viewer_router)
 app.include_router(mijin_router)
+app.include_router(stats_router)
 
 
 if __name__ == "__main__":

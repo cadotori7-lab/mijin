@@ -378,3 +378,12 @@ EMOTION_TAG_ALIASES = {
 # mem/ 아래가 아니다 - 기억이 아니라 계측이고, /mijin/reset이나 회고가 건드리면 안 된다.
 STATS_FILE = BASE_DIR / "stats.jsonl"
 
+# ================= 14. 요금 (stats.py 집계용) =================
+# ollama.com/pricing의 TARGET_MODEL 단가, 100만 토큰당 USD. 확인한 날짜를 같이 적는다.
+# 모르면 None으로 둔다 - /stats가 요금 칸을 비워 둔다 (추측한 단가로 계산하지 않는다).
+PRICE_CHECKED = None          # 예: "2026-10-10"
+PRICE_INPUT = None
+PRICE_CACHED_INPUT = None
+PRICE_OUTPUT = None
+PRICE_PEAK_MULTIPLIER = None  # 피크 단가가 따로 있으면. 없으면 None
+
