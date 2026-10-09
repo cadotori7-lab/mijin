@@ -110,16 +110,28 @@ def _aggregate(recs: List[Dict[str, Any]]) -> Dict[str, Any]:
     ocr_only = sum(1 for r in vision_or_ocr if r.get("path") == "ocr_only")
     vision_skip_rate = ocr_only / len(vision_or_ocr) if vision_or_ocr else None
 
-    # 캐시 적중률 - usage가 있는 건만, 건수도 같이 표시 (모름과 0을 구분)
-    with_usage = [r for r in recs if r.get("cached_tokens") is not None and r.get("prompt_tokens")]
+    # 캐시 적중률 - 대사/화면 요청만 본다. 회고·증류는 매번 새 재료(그날 대화·관찰)를
+    # 앞에 붙여 보내는 프롬프트라 원래 캐시가 안 걸린다 - 섞으면 "프롬프트 배치
+    # 덕분에 캐시가 걸린다"는 주장과 무관한 숫자가 분모에 끼어 비율이 내려간다.
+    # (실측: 대사만 63.5% vs 섞으면 45.2% - 하루 치만 쌓였을 때 특히 크게 흔들린다)
+    chat_recs = [r for r in recs if r.get("kind") not in ("episode", "distill")]
+    distill_recs = [r for r in recs if r.get("kind") in ("episode", "distill")]
+
+    with_usage = [r for r in chat_recs if r.get("cached_tokens") is not None and r.get("prompt_tokens")]
     cached_sum = sum(r["cached_tokens"] for r in with_usage)
     prompt_sum = sum(r["prompt_tokens"] for r in with_usage)
     cache_rate = cached_sum / prompt_sum if prompt_sum else None
 
-    # 지연 - path별 p50/p95
+    distill_with_usage = [r for r in distill_recs if r.get("cached_tokens") is not None and r.get("prompt_tokens")]
+    distill_cached_sum = sum(r["cached_tokens"] for r in distill_with_usage)
+    distill_prompt_sum = sum(r["prompt_tokens"] for r in distill_with_usage)
+    distill_cache_rate = distill_cached_sum / distill_prompt_sum if distill_prompt_sum else None
+
+    # 지연 - path별 p50/p95. 같은 이유로 회고·증류를 뺀다 (path는 항상 "none"이라
+    # 안 빼면 말 걸기·이벤트의 "none" 지연과 섞인다).
     latency: Dict[str, Dict[str, Any]] = {}
     for path in ("vision", "ocr_only", "none"):
-        vals = [r["ms_total"] for r in recs
+        vals = [r["ms_total"] for r in chat_recs
                 if r.get("path") == path and r.get("ms_total") is not None]
         latency[path] = {"n": len(vals), "p50": pct(vals, 50), "p95": pct(vals, 95)}
 
@@ -134,20 +146,24 @@ def _aggregate(recs: List[Dict[str, Any]]) -> Dict[str, Any]:
             e = r.get("error") or "?"
             error_counts[e] = error_counts.get(e, 0) + 1
 
-    # 토큰 합계 - 피크/비피크, 회고·증류 분리
+    # 토큰 합계 - 피크/비피크 × 대사/회고·증류로 나눈다. 회고·증류도 그날 첫 요청
+    # 때 돌고(ensure_recent/ensure), 저녁에 주로 켜면 거의 매일 피크에 걸린다 -
+    # 항상 비피크로 계산하면 안 된다 (실측: 증류가 21:51에 돌아 피크였음).
     tokens = {
         "chat_peak": {"prompt": 0, "cached": 0, "output": 0},
         "chat_off": {"prompt": 0, "cached": 0, "output": 0},
-        "episode_distill": {"prompt": 0, "cached": 0, "output": 0},
+        "episode_distill_peak": {"prompt": 0, "cached": 0, "output": 0},
+        "episode_distill_off": {"prompt": 0, "cached": 0, "output": 0},
     }
     for r in recs:
         p, c, o = r.get("prompt_tokens"), r.get("cached_tokens"), r.get("output_tokens")
         if p is None and c is None and o is None:
             continue
+        peak = is_peak(r.get("t", 0))
         if r.get("kind") in ("episode", "distill"):
-            bucket = tokens["episode_distill"]
+            bucket = tokens["episode_distill_peak"] if peak else tokens["episode_distill_off"]
         else:
-            bucket = tokens["chat_peak"] if is_peak(r.get("t", 0)) else tokens["chat_off"]
+            bucket = tokens["chat_peak"] if peak else tokens["chat_off"]
         bucket["prompt"] += p or 0
         bucket["cached"] += c or 0
         bucket["output"] += o or 0
@@ -165,7 +181,8 @@ def _aggregate(recs: List[Dict[str, Any]]) -> Dict[str, Any]:
         cost_usd = (
             _bucket_cost(tokens["chat_peak"], True)
             + _bucket_cost(tokens["chat_off"], False)
-            + _bucket_cost(tokens["episode_distill"], False)
+            + _bucket_cost(tokens["episode_distill_peak"], True)
+            + _bucket_cost(tokens["episode_distill_off"], False)
         )
 
     return {
@@ -173,7 +190,9 @@ def _aggregate(recs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "by_kind_outcome": by_kind_outcome,
         "phash_skip_rate": phash_rate, "phash_skip_n": len(with_path),
         "vision_skip_rate": vision_skip_rate, "vision_skip_n": len(vision_or_ocr),
-        "cache_rate": cache_rate, "cache_n": len(with_usage), "cache_total_n": total,
+        "cache_rate": cache_rate, "cache_n": len(with_usage), "cache_total_n": len(chat_recs),
+        "distill_cache_rate": distill_cache_rate, "distill_cache_n": len(distill_with_usage),
+        "distill_cache_total_n": len(distill_recs),
         "latency": latency,
         "blocked_count": blocked_count, "redacted_sum": redacted_sum,
         "error_counts": error_counts,
@@ -230,7 +249,8 @@ def _render_html(days: int, a: Dict[str, Any]) -> str:
         for label, b in (
             ("대화·화면 (피크)", tok["chat_peak"]),
             ("대화·화면 (비피크)", tok["chat_off"]),
-            ("회고·증류", tok["episode_distill"]),
+            ("회고·증류 (피크)", tok["episode_distill_peak"]),
+            ("회고·증류 (비피크)", tok["episode_distill_off"]),
         )
     )
 
@@ -275,7 +295,9 @@ def _render_html(days: int, a: Dict[str, Any]) -> str:
 <p>비전 생략률: {_pct_str(a['vision_skip_rate'])} (화면 분석 {a['vision_skip_n']}건 중)</p>
 
 <h2>캐시 적중률</h2>
-<p>{_pct_str(a['cache_rate'])} ({a['cache_n']}건 / 전체 {a['cache_total_n']}건에 usage 있음)</p>
+<p>대사·화면: {_pct_str(a['cache_rate'])} ({a['cache_n']}건 / 전체 {a['cache_total_n']}건에 usage 있음)</p>
+<p class="note">회고·증류: {_pct_str(a['distill_cache_rate'])} ({a['distill_cache_n']}건 / 전체 {a['distill_cache_total_n']}건에 usage 있음) —
+매번 그날 재료를 새로 앞에 붙이는 프롬프트라 원래 캐시가 안 걸린다. 위 수치와 따로 본다.</p>
 
 <h2>지연 (ms_total, path별)</h2>
 <table><tr><th>path</th><th>건수</th><th>p50</th><th>p95</th></tr>{lat_rows}</table>

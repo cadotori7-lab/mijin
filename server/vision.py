@@ -201,15 +201,20 @@ def _redact_secrets(text: str) -> Tuple[str, int]:
     return text, n
 
 
-def _run_ocr(raw_b64: str, window_title: str = "") -> Tuple[str, int]:
-    """OCR 결과와 비밀정보 제거 건수를 함께 돌려준다 (계측용 - stats.py)."""
+def _run_ocr(raw_b64: str, window_title: str = "") -> Tuple[str, int, int]:
+    """OCR 결과, 비밀정보 제거 건수, 걸린 시간(ms)을 함께 돌려준다 (계측용 - stats.py).
+
+    asyncio.to_thread로 스레드에 넘겨 돌므로, 호출부(gather)의 벽시계 시간과는
+    별개로 여기서 직접 재야 한다 - 안 그러면 몇 건 쌓여도 첫 요청만 느린 건지
+    글자 많은 화면이 원래 느린 건지 구분할 수 없다."""
+    t0 = time.perf_counter()
     if not _HAS_OCR:
-        return "", 0
+        return "", 0, int((time.perf_counter() - t0) * 1000)
     try:
         image_bytes = _crop_content_area(raw_b64, window_title)
         result = _ocr_engine(image_bytes)
         if not result.txts:
-            return "", 0
+            return "", 0, int((time.perf_counter() - t0) * 1000)
         # 신뢰도 낮은 줄(작은 툴바 아이콘 등 오인식)은 걸러낸다.
         # 추가로 너무 짧은 줄("*", "-", "허" 등)은 아이콘 오인식이라 버린다.
         lines = [
@@ -220,10 +225,10 @@ def _run_ocr(raw_b64: str, window_title: str = "") -> Tuple[str, int]:
         text, redacted = _redact_secrets(text)
         if redacted:
             print(f"[INFO] OCR에서 비밀정보 의심 {redacted}건 제거")
-        return text, redacted
+        return text, redacted, int((time.perf_counter() - t0) * 1000)
     except Exception as e:
         print(f"[WARN] OCR 실패: {e}")
-        return "", 0
+        return "", 0, int((time.perf_counter() - t0) * 1000)
 
 
 def _active_window_title() -> str:
@@ -398,7 +403,7 @@ async def extract_and_analyze_image(
 
     # OCR과 다운스케일은 동기 CPU 작업이라 그대로 두면 이벤트 루프를 막는다.
     # (요청이 겹치면 줄줄이 밀림) -> 스레드로 넘긴다.
-    (ocr_text, redacted), vision_b64 = await asyncio.gather(
+    (ocr_text, redacted, ms_ocr), vision_b64 = await asyncio.gather(
         asyncio.to_thread(_run_ocr, raw_b64, window_title),
         asyncio.to_thread(_downscale_for_vision, raw_b64),
     )
@@ -508,5 +513,6 @@ async def extract_and_analyze_image(
         info["redacted"] = redacted
         info["vision_retry"] = vision_retry
         info["ms_vision"] = ms_vision
+        info["ms_ocr"] = ms_ocr
 
     return "ok", record

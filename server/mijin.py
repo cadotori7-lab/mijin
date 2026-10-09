@@ -236,7 +236,7 @@ async def mijin_chat(req: MijinRequest):
         "t": int(time.time() * 1000), "kind": req.kind,
         "outcome": "exception", "path": "none",
         "deep": False, "ocr_chars": 0, "sent_chars": 0, "redacted": 0,
-        "vision_retry": False, "ms_total": None, "ms_vision": 0, "ms_cloud": None,
+        "vision_retry": False, "ms_total": None, "ms_ocr": 0, "ms_vision": 0, "ms_cloud": None,
         "prompt_tokens": None, "cached_tokens": None, "output_tokens": None,
         "error": None,
     }
